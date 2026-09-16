@@ -1,0 +1,2145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Крестики-нолики Pro</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-1: #0f0e1a;
+    --bg-2: #1a1830;
+    --accent: #ffd166;
+    --x-color: #4cc9f0;
+    --o-color: #f72585;
+    --panel: rgba(255,255,255,0.05);
+    --good: #7bffb0;
+    --bad: #ff6b6b;
+  }
+
+  html, body { height: 100%; overflow-x: hidden; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    background: var(--bg-1);
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(76,201,240,0.12), transparent 45%),
+      radial-gradient(circle at 80% 100%, rgba(247,37,133,0.12), transparent 45%),
+      linear-gradient(135deg, var(--bg-1), var(--bg-2));
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #fff;
+    padding: 12px;
+    gap: 12px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1 {
+    font-size: 22px;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, var(--x-color), var(--accent), var(--o-color));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .top-bar {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .wallet {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    background: var(--panel);
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .wallet .icon { font-size: 16px; }
+  .wallet.coins .icon { filter: drop-shadow(0 0 6px #ffd166); }
+  .wallet.stars .icon { filter: drop-shadow(0 0 6px #a78bfa); }
+
+  .wallet button {
+    padding: 2px 9px;
+    font-size: 12px;
+    background: linear-gradient(135deg, #a78bfa, #4cc9f0);
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 700;
+    margin-left: 4px;
+  }
+
+  .strikes {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .strike {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--panel);
+    transition: all 0.3s;
+  }
+  .strike .val { font-size: 15px; min-width: 18px; text-align: center; }
+  .strike.win.active {
+    background: rgba(123,255,176,0.15);
+    border-color: rgba(123,255,176,0.5);
+    color: var(--good);
+  }
+  .strike.lose.active {
+    background: rgba(255,107,107,0.15);
+    border-color: rgba(255,107,107,0.5);
+    color: var(--bad);
+  }
+
+  .settings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    padding: 8px 12px;
+    background: var(--panel);
+    border-radius: 12px;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .settings label { display: flex; align-items: center; gap: 5px; }
+
+  select {
+    padding: 5px 8px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+  }
+  select option { background: #2a2a45; color: #fff; }
+
+  .match-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    padding: 8px 16px;
+    background: var(--panel);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    width: 100%;
+    max-width: 420px;
+  }
+  .match-score {
+    display: flex;
+    gap: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    align-items: center;
+  }
+  .match-score .x { color: var(--x-color); }
+  .match-score .o { color: var(--o-color); }
+  .match-score .vs { color: #888; font-size: 12px; }
+
+  .turn-timer {
+    width: 100%;
+    max-width: 300px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #ccc;
+  }
+  .turn-timer .bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .turn-timer .bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #7bffb0, #ffd166);
+    transition: width 0.1s linear;
+    border-radius: 6px;
+  }
+  .turn-timer.warning .bar {
+    background: linear-gradient(90deg, #ffd166, #ff6b6b);
+  }
+  .turn-timer.danger .bar {
+    background: linear-gradient(90deg, #ff6b6b, #f72585);
+  }
+  .turn-timer .time-text {
+    min-width: 38px;
+    text-align: right;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .score {
+    display: flex;
+    gap: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 7px 16px;
+    background: var(--panel);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .score .x { color: var(--x-color); }
+  .score .o { color: var(--o-color); }
+  .score .draw { color: var(--accent); }
+
+  #status {
+    font-size: 16px;
+    min-height: 24px;
+    font-weight: 600;
+    color: var(--accent);
+    text-align: center;
+  }
+
+  .board {
+    display: grid;
+    gap: 5px;
+    padding: 10px;
+    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .cell {
+    background: linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03));
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 10px;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0;
+  }
+  .cell:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+    transform: scale(1.04);
+  }
+  .cell:disabled { cursor: default; }
+
+  .piece {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: dropIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    width: 80%;
+    height: 80%;
+  }
+  @keyframes dropIn {
+    0%   { transform: translateY(-200%) scale(0.3) rotate(-40deg); opacity: 0; }
+    55%  { transform: translateY(10%)  scale(1.15) rotate(8deg);   opacity: 1; }
+    75%  { transform: translateY(-5%)  scale(0.95) rotate(-4deg); }
+    100% { transform: translateY(0)    scale(1)    rotate(0);      opacity: 1; }
+  }
+  .piece svg { width: 100%; height: 100%; display: block; }
+  .cell.x .piece { color: var(--x-color); filter: drop-shadow(0 0 8px rgba(76,201,240,0.7)); }
+  .cell.o .piece { color: var(--o-color); filter: drop-shadow(0 0 8px rgba(247,37,133,0.7)); }
+  .cell.win {
+    background: rgba(255,209,102,0.2);
+    box-shadow: 0 0 20px rgba(255,209,102,0.5);
+  }
+
+  .buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  button {
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e1e2f;
+    background: linear-gradient(135deg, #ffd166, #ffb84d);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(255,209,102,0.25);
+  }
+  button:hover:not(:disabled) { transform: translateY(-2px); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  button.secondary {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    box-shadow: none;
+  }
+  button.purple {
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    color: #fff;
+  }
+  button.gift {
+    background: linear-gradient(135deg, #7bffb0, #4cc9f0);
+    color: #0f0e1a;
+    position: relative;
+  }
+  button.gift .dot {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 11px;
+    height: 11px;
+    background: #f72585;
+    border-radius: 50%;
+  }
+
+  #undoBtn {
+    position: relative;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    color: #fff;
+  }
+  #undoBtn .badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #f72585;
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-weight: 700;
+  }
+
+  .history-wrap {
+    width: 100%;
+    max-width: 420px;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .history-wrap h3 {
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: var(--accent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .history-wrap h3 button {
+    padding: 3px 9px;
+    font-size: 11px;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    box-shadow: none;
+    border-radius: 6px;
+  }
+  #historyList {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+  #historyList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 9px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 7px;
+    border-left: 3px solid #666;
+  }
+  #historyList li.win-x { border-left-color: var(--x-color); }
+  #historyList li.win-o { border-left-color: var(--o-color); }
+  #historyList li.draw  { border-left-color: var(--accent); }
+  #historyList .result { font-weight: 700; font-size: 12px; }
+  #historyList .result.win-x { color: var(--x-color); }
+  #historyList .result.win-o { color: var(--o-color); }
+  #historyList .result.draw  { color: var(--accent); }
+  #historyList .meta { font-size: 10px; color: #aaa; }
+  #historyList .empty {
+    justify-content: center;
+    color: #888;
+    font-style: italic;
+    border-left: none;
+    background: transparent;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+    backdrop-filter: blur(6px);
+  }
+  .overlay.show { display: flex; }
+
+  .modal {
+    background: linear-gradient(180deg, #2a2a45, #1f1e35);
+    border-radius: 18px;
+    padding: 20px;
+    max-width: 380px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 10px; color: var(--accent); }
+  .modal p { font-size: 13px; color: #ccc; margin-bottom: 16px; line-height: 1.45; }
+  .modal .buttons { justify-content: center; }
+
+  .shop-modal { max-width: 520px; text-align: left; }
+  .shop-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 14px;
+    background: rgba(0,0,0,0.2);
+    padding: 4px;
+    border-radius: 10px;
+  }
+  .shop-tab {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 13px;
+    color: #bbb;
+    border: none;
+    background: transparent;
+  }
+  .shop-tab.active {
+    background: linear-gradient(135deg, #a78bfa, #4cc9f0);
+    color: #fff;
+  }
+  .shop-panel { display: none; }
+  .shop-panel.active { display: block; }
+
+  .skin-section { margin-bottom: 16px; }
+  .skin-section h3 {
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .skins-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+    gap: 8px;
+  }
+  .skin-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 10px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    position: relative;
+  }
+  .skin-card.selected {
+    border-color: var(--accent);
+    background: rgba(255,209,102,0.1);
+  }
+  .skin-card.locked .skin-preview { filter: grayscale(1) opacity(0.4); }
+  .skin-preview {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--x-color);
+  }
+  .skin-card[data-type="o"] .skin-preview { color: var(--o-color); }
+  .skin-preview svg { width: 100%; height: 100%; }
+  .skin-name { font-size: 10px; color: #ddd; font-weight: 600; }
+  .skin-price { font-size: 11px; font-weight: 700; color: var(--accent); }
+  .skin-card.selected .skin-price { color: var(--good); }
+  .skin-card.owned .skin-price { color: var(--good); }
+  .skin-badge {
+    position: absolute;
+    top: 4px; right: 4px;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: var(--good);
+    color: #1e1e2f;
+    font-weight: 700;
+  }
+
+  .stars-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .star-pack {
+    background: linear-gradient(160deg, rgba(167,139,250,0.15), rgba(76,201,240,0.08));
+    border: 1px solid rgba(167,139,250,0.3);
+    border-radius: 12px;
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .star-pack .star-icon { font-size: 28px; }
+  .star-pack .star-amount { font-size: 14px; font-weight: 800; }
+  .star-pack .star-bonus { font-size: 10px; color: var(--good); font-weight: 700; }
+
+  .ton-buy-btn {
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #0098EA, #0077B6);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0,152,234,0.3);
+  }
+  .ton-buy-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .ton-buy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .ton-price {
+    font-size: 12px;
+    color: #7cc8f0;
+    font-weight: 600;
+  }
+
+  .shop-hint {
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .daily-rewards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .daily-day {
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 10px 4px;
+    text-align: center;
+    border: 2px solid transparent;
+  }
+  .daily-day.claimed {
+    background: rgba(123,255,176,0.08);
+    border-color: rgba(123,255,176,0.4);
+  }
+  .daily-day.today {
+    border-color: var(--accent);
+    background: rgba(255,209,102,0.1);
+  }
+  .daily-day .day-label { font-size: 10px; color: #aaa; margin-bottom: 3px; }
+  .daily-day .day-icon { font-size: 18px; margin-bottom: 3px; }
+  .daily-day .day-reward { font-size: 11px; font-weight: 700; color: var(--accent); }
+  .daily-day.claimed .day-reward { color: var(--good); }
+
+  .ad-screen {
+    background: linear-gradient(135deg, #f72585, #4cc9f0);
+    border-radius: 12px;
+    padding: 26px 18px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .ad-screen .ad-tag {
+    position: absolute;
+    top: 8px; left: 8px;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .ad-screen .ad-content {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .ad-screen .ad-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,0.9);
+    margin-top: 6px;
+  }
+  .ad-timer { font-size: 13px; color: #aaa; margin-bottom: 12px; }
+  .ad-progress {
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .ad-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ffd166, #f72585);
+  }
+
+  .toast {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-120%);
+    background: linear-gradient(135deg, #2a2a45, #1f1e35);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    z-index: 200;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: rgba(123,255,176,0.5); color: var(--good); }
+  .toast.error   { border-color: rgba(255,107,107,0.5); color: var(--bad); }
+
+  .tg-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #ccc;
+    background: var(--panel);
+    padding: 6px 14px;
+    border-radius: 30px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .tg-user img { width: 24px; height: 24px; border-radius: 50%; }
+
+  #ton-connect-btn {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0;
+  }
+
+  .ton-pay-modal { max-width: 400px; }
+  .ton-pay-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .ton-pay-header .ton-logo { font-size: 40px; }
+  .ton-pay-header .ton-amount {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .ton-pay-header .ton-stars { font-size: 14px; color: #ccc; }
+  .ton-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .ton-info-row span:first-child { color: #888; }
+  .ton-info-row span:last-child { color: #fff; font-weight: 600; }
+  .ton-status {
+    padding: 12px;
+    background: rgba(0,152,234,0.1);
+    border: 1px solid rgba(0,152,234,0.3);
+    border-radius: 10px;
+    font-size: 13px;
+    margin: 14px 0;
+    color: #7cc8f0;
+  }
+  .ton-status.success {
+    background: rgba(123,255,176,0.1);
+    border-color: rgba(123,255,176,0.4);
+    color: var(--good);
+  }
+  .ton-status.error {
+    background: rgba(255,107,107,0.1);
+    border-color: rgba(255,107,107,0.4);
+    color: var(--bad);
+  }
+  .ton-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #4cc9f0;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+  <div class="tg-user" id="tgUser" style="display:none;"></div>
+
+  <h1>КРЕСТИКИ-НОЛИКИ PRO</h1>
+
+  <div class="top-bar">
+    <div class="wallet coins">
+      <span class="icon">🪙</span>
+      <span id="coinsCount">0</span>
+    </div>
+    <div class="wallet stars">
+      <span class="icon">⭐</span>
+      <span id="starsCount">0</span>
+      <button id="buyStarsBtn">+</button>
+    </div>
+    <button id="shopBtn" class="purple">🛍 Магазин</button>
+    <button id="dailyBtn" class="gift">🎁 Ежедневно</button>
+  </div>
+
+  <div id="ton-connect-btn"></div>
+
+  <div class="strikes">
+    <div class="strike win" id="winStrike">
+      🔥 WinStrike: <span class="val" id="winStrikeVal">0</span>
+    </div>
+    <div class="strike lose" id="loseStrike">
+      💧 LoseStrike: <span class="val" id="loseStrikeVal">0</span>
+    </div>
+  </div>
+
+  <div class="settings">
+    <label>Размер:
+      <select id="sizeSelect">
+        <option value="3">3 × 3</option>
+        <option value="4">4 × 4</option>
+        <option value="5">5 × 5</option>
+      </select>
+    </label>
+    <label>Режим:
+      <select id="modeSelect">
+        <option value="pvp">2 игрока</option>
+        <option value="pve">Против ИИ</option>
+      </select>
+    </label>
+    <label>Сложность:
+      <select id="diffSelect">
+        <option value="easy">Легко</option>
+        <option value="medium">Средне</option>
+        <option value="hard">Непобедимо</option>
+      </select>
+    </label>
+    <label>Матч:
+      <select id="matchSelect">
+        <option value="1">До 1 победы</option>
+        <option value="2" selected>До 2 побед</option>
+        <option value="3">До 3 побед</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="match-panel">
+    <div class="match-score">
+      <span class="x">X: <span id="matchX">0</span></span>
+      <span class="vs" id="matchInfo">матч до 2 побед</span>
+      <span class="o">O: <span id="matchO">0</span></span>
+    </div>
+    <div class="turn-timer" id="turnTimer">
+      <span>⏱</span>
+      <div class="bar-wrap"><div class="bar" id="timerBar"></div></div>
+      <span class="time-text" id="timerText">15с</span>
+    </div>
+  </div>
+
+  <div class="score">
+    <div class="x">X: <span id="scoreX">0</span></div>
+    <div class="o">O: <span id="scoreO">0</span></div>
+    <div class="draw">Ничьи: <span id="scoreD">0</span></div>
+  </div>
+
+  <div id="status">Ход игрока: X</div>
+
+  <div class="board" id="board"></div>
+
+  <div class="buttons">
+    <button id="undoBtn">↩ Отменить <span class="badge" id="undoBadge">2</span></button>
+    <button id="restart">Новый раунд</button>
+    <button id="resetAll" class="secondary">Сбросить</button>
+  </div>
+
+  <div class="history-wrap">
+    <h3>
+      Последние партии
+      <button id="clearHistory" class="secondary">Очистить</button>
+    </h3>
+    <ul id="historyList"></ul>
+  </div>
+
+  <div class="overlay" id="shopOverlay">
+    <div class="modal shop-modal">
+      <h2>🛍 Магазин</h2>
+      <div class="shop-tabs">
+        <button class="shop-tab active" data-tab="skins">Скины</button>
+        <button class="shop-tab" data-tab="stars">Звёзды</button>
+      </div>
+      <div class="shop-panel active" id="panel-skins">
+        <div class="skin-section">
+          <h3>Скины для X <span style="font-size:10px;color:#888;font-weight:400;">нажми, чтобы выбрать</span></h3>
+          <div class="skins-grid" id="skinsX"></div>
+        </div>
+        <div class="skin-section">
+          <h3>Скины для O <span style="font-size:10px;color:#888;font-weight:400;">нажми, чтобы выбрать</span></h3>
+          <div class="skins-grid" id="skinsO"></div>
+        </div>
+        <div class="shop-hint">Монеты 🪙 начисляются за победы. За победу — 1🪙, максимум +5🪙 за серию.</div>
+      </div>
+      <div class="shop-panel" id="panel-stars">
+        <div class="stars-grid" id="starsGrid"></div>
+        <div class="shop-hint">💎 Оплата через TON (Tonkeeper). Комиссия сети ~0.01 TON.</div>
+      </div>
+      <div class="buttons" style="margin-top:14px;">
+        <button id="closeShop" class="secondary">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="tonPayOverlay">
+    <div class="modal ton-pay-modal">
+      <h2>💎 Оплата TON</h2>
+      <div class="ton-pay-header">
+        <div class="ton-logo">💎</div>
+        <div class="ton-amount" id="tonPayAmount">0.00 TON</div>
+        <div class="ton-stars" id="tonPayStars">+0 ⭐</div>
+      </div>
+      <div class="ton-info-row">
+        <span>Кошелёк:</span>
+        <span id="tonPayWallet">UQ...</span>
+      </div>
+      <div class="ton-info-row">
+        <span>Сеть:</span>
+        <span>TON Mainnet</span>
+      </div>
+      <div class="ton-info-row">
+        <span>Комиссия:</span>
+        <span>~0.01 TON</span>
+      </div>
+      <div class="ton-status" id="tonPayStatus" style="display:none;"></div>
+      <div class="buttons">
+        <button id="tonPayConfirm">Подключить кошелёк</button>
+        <button id="tonPayCancel" class="secondary">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="dailyOverlay">
+    <div class="modal">
+      <h2>🎁 Ежедневная награда</h2>
+      <p>Заходи каждый день и получай всё больше монет!</p>
+      <div class="daily-rewards" id="dailyRewards"></div>
+      <div class="buttons">
+        <button id="dailyClaim">Забрать</button>
+        <button id="dailyClose" class="secondary">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="adOverlay">
+    <div class="modal">
+      <h2>📺 Реклама</h2>
+      <p>Посмотрите рекламу, чтобы получить отмену хода.</p>
+      <div class="ad-screen">
+        <span class="ad-tag">РЕКЛАМА</span>
+        <div class="ad-content">🎮 Играй ещё круче!</div>
+        <div class="ad-sub">Скачай и получи 100 бонусов</div>
+      </div>
+      <div class="ad-progress"><div class="ad-progress-bar" id="adBar"></div></div>
+      <div class="ad-timer" id="adTimer">Осталось: 3 сек</div>
+      <div class="buttons">
+        <button id="adCancel" class="secondary" disabled>Пропустить</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="undoOverlay">
+    <div class="modal">
+      <h2>↩ Отмена хода</h2>
+      <p id="undoText">Потратить 1 отмену за просмотр рекламы?</p>
+      <div class="buttons">
+        <button id="undoConfirm">Смотреть рекламу</button>
+        <button id="undoCancel" class="secondary">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="skinBuyOverlay">
+    <div class="modal">
+      <h2 id="skinBuyTitle">🎨 Покупка скина</h2>
+      <p id="skinBuyText">Купить скин?</p>
+      <div class="buttons">
+        <button id="skinBuyConfirm">Купить</button>
+        <button id="skinBuyCancel" class="secondary">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  // ========================================================================
+  // ⚙️ НАСТРОЙКИ
+  // ========================================================================
+
+  // 👇 ТВОЙ TON-КОШЕЛЁК (уже вставлен)
+  const TON_WALLET = 'UQC1DG4cfYQbisJHj0w9_BM5tRl9naOETkLgcZpMOw0dEMTc';
+
+  // 👇 Цены пакетов в TON
+  const TON_PRICES = {
+    s1: 0.05,   // 1 звезда
+    s2: 0.10,   // 2 звезды
+    s3: 0.25,   // 5 звёзд + 1 бонус
+    s4: 0.50,   // 10 звёзд + 3 бонус
+    s5: 1.25,   // 25 звёзд + 10 бонус
+    s6: 2.50    // 50 звёзд + 25 бонус
+  };
+
+  // 👇 URL манифеста
+  const TON_MANIFEST_URL = window.location.origin + '/tonconnect-manifest.json';
+
+  // ========================================================================
+  // TELEGRAM WEB APP
+  // ========================================================================
+  const tg = window.Telegram?.WebApp;
+  let tgUser = null;
+  let isTelegram = false;
+
+  if (tg && tg.initData) {
+    isTelegram = true;
+    tg.ready();
+    tg.expand();
+    try { tg.setHeaderColor('#0f0e1a'); } catch {}
+    try { tg.setBackgroundColor('#0f0e1a'); } catch {}
+
+    tgUser = tg.initDataUnsafe?.user || null;
+
+    if (tgUser) {
+      const el = document.getElementById('tgUser');
+      el.style.display = 'flex';
+      el.innerHTML = `
+        ${tgUser.photo_url ? `<img src="${tgUser.photo_url}" alt="">` : '👤'}
+        <span>${tgUser.first_name}${tgUser.last_name ? ' ' + tgUser.last_name : ''}</span>
+      `;
+    }
+  }
+
+  const STORAGE_KEY = 'tictactoe_ton_' + (tgUser?.id || 'guest');
+
+  // ========================================================================
+  // TON CONNECT
+  // ========================================================================
+  let tonConnectUI = null;
+  let tonWalletAddress = null;
+
+  function initTonConnect() {
+    if (typeof TON_CONNECT_UI === 'undefined') {
+      console.warn('TON Connect SDK не загружен');
+      return;
+    }
+    try {
+      tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+        manifestUrl: TON_MANIFEST_URL,
+        buttonRootId: 'ton-connect-btn'
+      });
+
+      tonConnectUI.onStatusChange(wallet => {
+        if (wallet) {
+          tonWalletAddress = wallet.account.address;
+          console.log('TON подключён:', tonWalletAddress);
+        } else {
+          tonWalletAddress = null;
+        }
+      });
+    } catch (e) {
+      console.warn('Ошибка TON Connect:', e);
+    }
+  }
+
+  // ========================================================================
+  // СКИНЫ
+  // ========================================================================
+  const SKINS = {
+    x_classic: { name:'Классика', type:'x', price:0, svg:`<svg viewBox="0 0 100 100"><path d="M20 20 L80 80 M80 20 L20 80" stroke="currentColor" stroke-width="14" stroke-linecap="round" fill="none"/></svg>` },
+    x_rounded: { name:'Мягкий', type:'x', price:50, svg:`<svg viewBox="0 0 100 100"><path d="M22 22 L78 78 M78 22 L22 78" stroke="currentColor" stroke-width="16" stroke-linecap="round" fill="none"/></svg>` },
+    x_neon:    { name:'Неон', type:'x', price:100, svg:`<svg viewBox="0 0 100 100"><path d="M20 20 L80 80 M80 20 L20 80" stroke="currentColor" stroke-width="10" stroke-linecap="round" fill="none"/><path d="M20 20 L80 80 M80 20 L20 80" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.8"/></svg>` },
+    x_cross:   { name:'Крест', type:'x', price:150, svg:`<svg viewBox="0 0 100 100"><path d="M50 10 L50 90 M10 50 L90 50" stroke="currentColor" stroke-width="16" stroke-linecap="round" fill="none"/></svg>` },
+    x_star:    { name:'Звезда', type:'x', price:300, svg:`<svg viewBox="0 0 100 100"><path d="M50 8 L61 38 L92 38 L67 57 L77 88 L50 69 L23 88 L33 57 L8 38 L39 38 Z" fill="currentColor"/></svg>` },
+    x_lightning:{ name:'Молния', type:'x', price:400, svg:`<svg viewBox="0 0 100 100"><path d="M55 8 L25 55 L45 55 L35 92 L75 42 L52 42 Z" fill="currentColor"/></svg>` },
+    x_diamond: { name:'Алмаз', type:'x', price:500, svg:`<svg viewBox="0 0 100 100"><path d="M50 10 L85 50 L50 90 L15 50 Z" fill="currentColor" opacity="0.85"/><path d="M50 10 L85 50 L50 50 Z" fill="#fff" opacity="0.3"/></svg>` },
+    x_flame:   { name:'Пламя', type:'x', price:700, svg:`<svg viewBox="0 0 100 100"><path d="M50 8 C50 8 70 25 70 45 C70 60 60 70 60 80 C60 90 50 95 50 95 C50 95 40 90 40 80 C40 70 30 60 30 45 C30 25 50 8 50 8 Z" fill="currentColor" opacity="0.9"/></svg>` },
+
+    o_classic: { name:'Классика', type:'o', price:0, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="32" stroke="currentColor" stroke-width="14" fill="none"/></svg>` },
+    o_bold:    { name:'Жирный', type:'o', price:50, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="34" stroke="currentColor" stroke-width="20" fill="none"/></svg>` },
+    o_neon:    { name:'Неон', type:'o', price:100, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="32" stroke="currentColor" stroke-width="10" fill="none"/><circle cx="50" cy="50" r="32" stroke="#fff" stroke-width="3" fill="none" opacity="0.8"/></svg>` },
+    o_ring:    { name:'Кольцо', type:'o', price:150, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" stroke="currentColor" stroke-width="8" fill="none"/><circle cx="50" cy="50" r="22" stroke="currentColor" stroke-width="4" fill="none" opacity="0.6"/></svg>` },
+    o_donut:   { name:'Пончик', type:'o', price:200, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="34" fill="currentColor"/><circle cx="50" cy="50" r="14" fill="#1f1e35"/></svg>` },
+    o_hex:     { name:'Гекс', type:'o', price:300, svg:`<svg viewBox="0 0 100 100"><path d="M50 8 L86 29 L86 71 L50 92 L14 71 L14 29 Z" fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round"/></svg>` },
+    o_portal:  { name:'Портал', type:'o', price:500, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="34" fill="currentColor" opacity="0.7"/><circle cx="50" cy="50" r="24" fill="none" stroke="#fff" stroke-width="3" opacity="0.7"/><circle cx="50" cy="50" r="14" fill="none" stroke="#fff" stroke-width="3" opacity="0.5"/><circle cx="50" cy="50" r="6" fill="#fff" opacity="0.8"/></svg>` },
+    o_moon:    { name:'Луна', type:'o', price:700, svg:`<svg viewBox="0 0 100 100"><path d="M62 18 C40 18 22 36 22 58 C22 76 36 90 54 90 C40 84 32 70 32 56 C32 40 44 26 62 18 Z" fill="currentColor"/><circle cx="72" cy="30" r="3" fill="#fff" opacity="0.8"/></svg>` }
+  };
+
+  const STAR_PACKS = [
+    { id:'s1', stars:1,  bonus:0 },
+    { id:'s2', stars:2,  bonus:0 },
+    { id:'s3', stars:5,  bonus:1 },
+    { id:'s4', stars:10, bonus:3 },
+    { id:'s5', stars:25, bonus:10 },
+    { id:'s6', stars:50, bonus:25 }
+  ];
+
+  const DAILY_REWARDS = [
+    { coins: 5,  icon:'🪙' },
+    { coins: 10, icon:'💰' },
+    { coins: 15, icon:'💎' },
+    { coins: 20, icon:'🎁' },
+    { coins: 30, icon:'🏆' },
+    { coins: 50, icon:'👑' },
+    { coins: 100, icon:'🌟' }
+  ];
+
+  const WIN_REWARD = 1;
+  const MAX_STRIKE_BONUS = 5;
+  const TURN_TIME = 15;
+  const MAX_UNDO_PER_GAME = 2;
+
+  // ========================================================================
+  // DOM
+  // ========================================================================
+  const $ = id => document.getElementById(id);
+
+  const boardEl    = $('board');
+  const statusEl   = $('status');
+  const restartBtn = $('restart');
+  const resetAllBtn= $('resetAll');
+  const undoBtn    = $('undoBtn');
+  const undoBadge  = $('undoBadge');
+  const sizeSelect = $('sizeSelect');
+  const modeSelect = $('modeSelect');
+  const diffSelect = $('diffSelect');
+  const matchSelect= $('matchSelect');
+  const scoreXEl   = $('scoreX');
+  const scoreOEl   = $('scoreO');
+  const scoreDEl   = $('scoreD');
+  const matchXEl   = $('matchX');
+  const matchOEl   = $('matchO');
+  const matchInfoEl= $('matchInfo');
+  const historyListEl = $('historyList');
+  const clearHistoryBtn = $('clearHistory');
+  const coinsCountEl = $('coinsCount');
+  const starsCountEl = $('starsCount');
+  const shopBtn = $('shopBtn');
+  const buyStarsBtn = $('buyStarsBtn');
+  const dailyBtn = $('dailyBtn');
+  const shopOverlay = $('shopOverlay');
+  const closeShopBtn = $('closeShop');
+  const skinsXEl = $('skinsX');
+  const skinsOEl = $('skinsO');
+  const starsGridEl = $('starsGrid');
+  const winStrikeEl = $('winStrike');
+  const loseStrikeEl = $('loseStrike');
+  const winStrikeVal = $('winStrikeVal');
+  const loseStrikeVal = $('loseStrikeVal');
+  const turnTimerEl = $('turnTimer');
+  const timerBar = $('timerBar');
+  const timerText = $('timerText');
+  const adOverlay   = $('adOverlay');
+  const adBar       = $('adBar');
+  const adTimer     = $('adTimer');
+  const adCancel    = $('adCancel');
+  const undoOverlay = $('undoOverlay');
+  const undoText    = $('undoText');
+  const undoConfirm = $('undoConfirm');
+  const undoCancel  = $('undoCancel');
+  const skinBuyOverlay = $('skinBuyOverlay');
+  const skinBuyTitle   = $('skinBuyTitle');
+  const skinBuyText    = $('skinBuyText');
+  const skinBuyConfirm = $('skinBuyConfirm');
+  const skinBuyCancel  = $('skinBuyCancel');
+  const dailyOverlay = $('dailyOverlay');
+  const dailyRewardsEl = $('dailyRewards');
+  const dailyClaim = $('dailyClaim');
+  const dailyClose = $('dailyClose');
+  const toastEl = $('toast');
+
+  const tonPayOverlay = $('tonPayOverlay');
+  const tonPayAmount = $('tonPayAmount');
+  const tonPayStars = $('tonPayStars');
+  const tonPayWallet = $('tonPayWallet');
+  const tonPayStatus = $('tonPayStatus');
+  const tonPayConfirm = $('tonPayConfirm');
+  const tonPayCancel = $('tonPayCancel');
+
+  // ========================================================================
+  // СОСТОЯНИЕ
+  // ========================================================================
+  let SIZE = 3, WIN_LEN = 3;
+  let state = [], cells = [];
+  let currentPlayer = 'X';
+  let gameOver = false, aiThinking = false;
+  let WIN_LINES = [];
+  let score = { X: 0, O: 0, D: 0 };
+  let history = [];
+  let moveHistory = [];
+  let undosLeft = MAX_UNDO_PER_GAME;
+  let coins = 0, stars = 0;
+  let ownedSkins = new Set(['x_classic', 'o_classic']);
+  let selectedSkinX = 'x_classic';
+  let selectedSkinO = 'o_classic';
+  let winStrike = 0, loseStrike = 0;
+  let dailyLastClaim = 0, dailyStreak = 0;
+  let matchLen = 2;
+  let matchWins = { X: 0, O: 0 };
+  let matchFinished = false;
+  let turnTimer = null, turnTimeLeft = TURN_TIME;
+  let pendingTONPack = null;
+  const TURN_TICK_MS = 100;
+
+  // ========================================================================
+  // ЗВУКИ
+  // ========================================================================
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) audioCtx = new AudioCtx();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function playTone(freq, duration = 0.12, type = 'sine', gainVal = 0.15) {
+    try {
+      ensureAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    } catch {}
+  }
+  const Sound = {
+    clickX:  () => playTone(660, 0.10, 'triangle'),
+    clickO:  () => playTone(440, 0.10, 'triangle'),
+    win:     () => { playTone(523, 0.15); setTimeout(()=>playTone(659,0.15),120); setTimeout(()=>playTone(784,0.25),240); },
+    lose:    () => { playTone(330, 0.2, 'sawtooth', 0.12); setTimeout(()=>playTone(220,0.3,'sawtooth',0.12),150); },
+    draw:    () => { playTone(330, 0.18, 'sawtooth', 0.1); setTimeout(()=>playTone(262,0.25,'sawtooth',0.1),150); },
+    ai:      () => playTone(300, 0.08, 'square', 0.08),
+    undo:    () => { playTone(520, 0.1); setTimeout(()=>playTone(390,0.15),90); },
+    coin:    () => { playTone(880, 0.08, 'square', 0.1); setTimeout(()=>playTone(1320,0.1,'square',0.1),70); },
+    buy:     () => { playTone(660, 0.1); setTimeout(()=>playTone(880,0.1),80); setTimeout(()=>playTone(1100,0.15),160); },
+    tick:    () => playTone(1200, 0.04, 'square', 0.05),
+    timeout: () => playTone(200, 0.3, 'sawtooth', 0.15)
+  };
+
+  // ========================================================================
+  // УТИЛИТЫ
+  // ========================================================================
+  function showToast(text, type = '') {
+    toastEl.textContent = text;
+    toastEl.className = 'toast ' + type;
+    toastEl.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toastEl.classList.remove('show'), 2600);
+  }
+
+  function loadState() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
+  }
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        size: sizeSelect.value, mode: modeSelect.value, diff: diffSelect.value,
+        matchLen: matchSelect.value, score, history, coins, stars,
+        ownedSkins: [...ownedSkins], selectedSkinX, selectedSkinO,
+        winStrike, loseStrike, dailyLastClaim, dailyStreak
+      }));
+    } catch {}
+  }
+
+  // ========================================================================
+  // ЛИНИИ
+  // ========================================================================
+  function buildWinLines(size, winLen) {
+    const lines = [];
+    for (let r = 0; r < size; r++)
+      for (let c = 0; c <= size - winLen; c++) {
+        const line = [];
+        for (let k = 0; k < winLen; k++) line.push(r * size + c + k);
+        lines.push(line);
+      }
+    for (let c = 0; c < size; c++)
+      for (let r = 0; r <= size - winLen; r++) {
+        const line = [];
+        for (let k = 0; k < winLen; k++) line.push((r + k) * size + c);
+        lines.push(line);
+      }
+    for (let r = 0; r <= size - winLen; r++)
+      for (let c = 0; c <= size - winLen; c++) {
+        const line = [];
+        for (let k = 0; k < winLen; k++) line.push((r + k) * size + c + k);
+        lines.push(line);
+      }
+    for (let r = 0; r <= size - winLen; r++)
+      for (let c = winLen - 1; c < size; c++) {
+        const line = [];
+        for (let k = 0; k < winLen; k++) line.push((r + k) * size + c - k);
+        lines.push(line);
+      }
+    return lines;
+  }
+
+  // ========================================================================
+  // ИНИЦИАЛИЗАЦИЯ
+  // ========================================================================
+  function initBoard() {
+    SIZE = Number(sizeSelect.value);
+    WIN_LEN = SIZE === 3 ? 3 : (SIZE === 4 ? 4 : 4);
+    matchLen = Number(matchSelect.value);
+
+    state = Array(SIZE * SIZE).fill('');
+    cells = [];
+    gameOver = false;
+    aiThinking = false;
+    currentPlayer = 'X';
+    moveHistory = [];
+    undosLeft = MAX_UNDO_PER_GAME;
+
+    WIN_LINES = buildWinLines(SIZE, WIN_LEN);
+
+    boardEl.innerHTML = '';
+    boardEl.style.gridTemplateColumns = `repeat(${SIZE}, ${cellSize()}px)`;
+    boardEl.style.gridTemplateRows    = `repeat(${SIZE}, ${cellSize()}px)`;
+
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'cell';
+      btn.dataset.index = i;
+      btn.style.fontSize = fontSizeFor(SIZE);
+      btn.addEventListener('click', handleClick);
+      boardEl.appendChild(btn);
+      cells.push(btn);
+    }
+
+    statusEl.textContent = 'Ход игрока: X';
+    statusEl.style.color = 'var(--accent)';
+    updateUndoUI();
+    updateMatchUI();
+    startTurnTimer();
+  }
+
+  function resetMatch() {
+    matchWins = { X: 0, O: 0 };
+    matchFinished = false;
+    updateMatchUI();
+  }
+
+  function cellSize() {
+    if (SIZE === 3) return 95;
+    if (SIZE === 4) return 74;
+    return 58;
+  }
+  function fontSizeFor(size) {
+    if (size === 3) return '48px';
+    if (size === 4) return '36px';
+    return '26px';
+  }
+  function updateMatchUI() {
+    matchXEl.textContent = matchWins.X;
+    matchOEl.textContent = matchWins.O;
+    matchInfoEl.textContent = `матч до ${matchLen} ${matchLen === 1 ? 'победы' : 'побед'}`;
+  }
+
+  // ========================================================================
+  // ТАЙМЕР
+  // ========================================================================
+  function startTurnTimer() {
+    stopTurnTimer();
+    if (gameOver || matchFinished) return;
+    turnTimeLeft = TURN_TIME;
+    updateTimerUI();
+
+    turnTimer = setInterval(() => {
+      turnTimeLeft -= TURN_TICK_MS / 1000;
+      if (turnTimeLeft <= 0) {
+        turnTimeLeft = 0;
+        updateTimerUI();
+        stopTurnTimer();
+        handleTimeout();
+        return;
+      }
+      const prevSec = Math.ceil((turnTimeLeft + TURN_TICK_MS/1000));
+      const curSec = Math.ceil(turnTimeLeft);
+      if (prevSec !== curSec && curSec <= 5) Sound.tick();
+      updateTimerUI();
+    }, TURN_TICK_MS);
+  }
+
+  function stopTurnTimer() {
+    if (turnTimer) { clearInterval(turnTimer); turnTimer = null; }
+  }
+
+  function updateTimerUI() {
+    const percent = Math.max(0, (turnTimeLeft / TURN_TIME) * 100);
+    timerBar.style.width = percent + '%';
+    timerText.textContent = Math.ceil(turnTimeLeft) + 'с';
+    turnTimerEl.classList.remove('warning', 'danger');
+    if (turnTimeLeft <= 5) turnTimerEl.classList.add('danger');
+    else if (turnTimeLeft <= 10) turnTimerEl.classList.add('warning');
+  }
+
+  function handleTimeout() {
+    if (gameOver || matchFinished) return;
+    Sound.timeout();
+    showToast(`⏱ Время вышло! Ход переходит к ${currentPlayer === 'X' ? 'O' : 'X'}`, 'error');
+    switchTurn();
+  }
+
+  // ========================================================================
+  // ХОДЫ
+  // ========================================================================
+  function switchTurn() {
+    if (gameOver || matchFinished) return;
+    currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+    statusEl.textContent = `Ход игрока: ${currentPlayer}`;
+    statusEl.style.color = 'var(--accent)';
+    updateUndoUI();
+    if (modeSelect.value === 'pve' && currentPlayer === 'O') aiTurn();
+    else startTurnTimer();
+  }
+
+  function handleClick(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (gameOver || matchFinished || aiThinking) return;
+    if (state[index] !== '') return;
+    if (modeSelect.value === 'pve' && currentPlayer !== 'X') return;
+
+    stopTurnTimer();
+    makeMove(index, currentPlayer);
+    if (!gameOver && !matchFinished) switchTurn();
+  }
+
+  function makeMove(index, player) {
+    state[index] = player;
+    moveHistory.push({ index, player });
+    const cell = cells[index];
+    cell.classList.add(player.toLowerCase());
+    cell.disabled = true;
+    const piece = document.createElement('span');
+    piece.className = 'piece';
+    piece.innerHTML = getSkinSVG(player);
+    cell.appendChild(piece);
+
+    if (player === 'X') Sound.clickX(); else Sound.clickO();
+
+    const winLine = checkWinner();
+    if (winLine) {
+      gameOver = true;
+      highlightWin(winLine);
+      score[player]++;
+      updateScoreUI();
+      handleMatchWin(player);
+      updateUndoUI();
+      stopTurnTimer();
+      return true;
+    }
+
+    if (state.every(v => v !== '')) {
+      gameOver = true;
+      score.D++;
+      updateScoreUI();
+      addHistory('D');
+      statusEl.textContent = 'Ничья! 🤝';
+      statusEl.style.color = 'var(--accent)';
+      Sound.draw();
+      updateUndoUI();
+      stopTurnTimer();
+      return true;
+    }
+    return false;
+  }
+
+  function getSkinSVG(player) {
+    const id = player === 'X' ? selectedSkinX : selectedSkinO;
+    return SKINS[id]?.svg || '';
+  }
+  function checkWinner() {
+    for (const line of WIN_LINES) {
+      const f = state[line[0]];
+      if (!f) continue;
+      if (line.every(i => state[i] === f)) return line;
+    }
+    return null;
+  }
+  function highlightWin(line) {
+    line.forEach((i, k) => setTimeout(() => cells[i].classList.add('win'), k * 90));
+  }
+  function updateScoreUI() {
+    scoreXEl.textContent = score.X;
+    scoreOEl.textContent = score.O;
+    scoreDEl.textContent = score.D;
+  }
+
+  // ========================================================================
+  // СТРИКИ
+  // ========================================================================
+  function updateStrikesUI() {
+    winStrikeVal.textContent = winStrike;
+    loseStrikeVal.textContent = loseStrike;
+    winStrikeEl.classList.toggle('active', winStrike > 0);
+    loseStrikeEl.classList.toggle('active', loseStrike > 0);
+  }
+
+  function registerWin() {
+    winStrike++;
+    loseStrike = 0;
+    const bonus = Math.min(winStrike, MAX_STRIKE_BONUS);
+    const total = WIN_REWARD + bonus;
+    addCoins(total);
+    updateStrikesUI();
+    statusEl.textContent = `🏆 Победа! +${total}🪙` + (bonus > 0 ? ` (серия +${bonus})` : '');
+    statusEl.style.color = 'var(--good)';
+    Sound.win();
+    addHistory('X');
+    if (bonus >= MAX_STRIKE_BONUS) {
+      showToast(`🔥 WinStrike ${winStrike}! Максимум +${MAX_STRIKE_BONUS}🪙`, 'success');
+    }
+  }
+  function registerLoss() {
+    loseStrike++;
+    winStrike = 0;
+    updateStrikesUI();
+    statusEl.textContent = '😔 Поражение';
+    statusEl.style.color = 'var(--bad)';
+    Sound.lose();
+    addHistory('O');
+  }
+
+  // ========================================================================
+  // МАТЧ
+  // ========================================================================
+  function handleMatchWin(player) {
+    matchWins[player]++;
+    updateMatchUI();
+
+    if (modeSelect.value === 'pve') {
+      if (player === 'X') registerWin();
+      else registerLoss();
+    } else {
+      statusEl.textContent = player === 'X' ? '🎉 Победил X!' : '🎉 Победил O!';
+      statusEl.style.color = player === 'X' ? 'var(--x-color)' : 'var(--o-color)';
+      Sound.win();
+      addHistory(player);
+    }
+
+    if (matchWins[player] >= matchLen) {
+      matchFinished = true;
+      setTimeout(() => showToast(`🏆 ${player} победил в матче!`, 'success'), 600);
+      setTimeout(() => { resetMatch(); initBoard(); }, 2500);
+    } else {
+      setTimeout(() => resetBoardOnly(), 1800);
+    }
+  }
+
+  function resetBoardOnly() {
+    state = Array(SIZE * SIZE).fill('');
+    gameOver = false;
+    aiThinking = false;
+    currentPlayer = 'X';
+    moveHistory = [];
+    undosLeft = MAX_UNDO_PER_GAME;
+    cells.forEach(cell => {
+      cell.classList.remove('x', 'o', 'win');
+      cell.disabled = false;
+      cell.innerHTML = '';
+    });
+    statusEl.textContent = 'Ход игрока: X';
+    statusEl.style.color = 'var(--accent)';
+    updateUndoUI();
+    startTurnTimer();
+  }
+
+  // ========================================================================
+  // ВАЛЮТА
+  // ========================================================================
+  function addCoins(amount) {
+    coins += amount;
+    updateWalletUI();
+    Sound.coin();
+    saveState();
+  }
+  function addStars(amount) {
+    stars += amount;
+    updateWalletUI();
+    saveState();
+  }
+  function updateWalletUI() {
+    coinsCountEl.textContent = coins;
+    starsCountEl.textContent = stars;
+  }
+
+  // ========================================================================
+  // ОТМЕНА
+  // ========================================================================
+  function updateUndoUI() {
+    undoBadge.textContent = undosLeft;
+    const canUndo = moveHistory.length > 0 && !gameOver && !matchFinished && undosLeft > 0 && !aiThinking;
+    undoBtn.disabled = !canUndo;
+  }
+
+  undoBtn.addEventListener('click', () => {
+    if (undoBtn.disabled) return;
+    undoText.textContent = `Потратить 1 отмену за просмотр рекламы? Осталось: ${undosLeft} из ${MAX_UNDO_PER_GAME}.`;
+    undoOverlay.classList.add('show');
+  });
+  undoCancel.addEventListener('click', () => undoOverlay.classList.remove('show'));
+  undoConfirm.addEventListener('click', () => {
+    undoOverlay.classList.remove('show');
+    startAd(() => performUndo());
+  });
+
+  function performUndo() {
+    if (moveHistory.length === 0) return;
+    stopTurnTimer();
+    const mode = modeSelect.value;
+    let toRemove = mode === 'pve' ? (moveHistory.length >= 2 ? 2 : 1) : 1;
+    for (let k = 0; k < toRemove; k++) {
+      const last = moveHistory.pop();
+      if (!last) break;
+      state[last.index] = '';
+      const cell = cells[last.index];
+      cell.classList.remove('x', 'o', 'win');
+      cell.disabled = false;
+      cell.innerHTML = '';
+    }
+    gameOver = false;
+    aiThinking = false;
+    currentPlayer = mode === 'pve' ? 'X' : (moveHistory.length % 2 === 0 ? 'X' : 'O');
+    undosLeft--;
+    Sound.undo();
+    statusEl.textContent = `Ход игрока: ${currentPlayer}`;
+    updateUndoUI();
+    startTurnTimer();
+  }
+
+  // ========================================================================
+  // РЕКЛАМА
+  // ========================================================================
+  function startAd(callback) {
+    adOverlay.classList.add('show');
+    adBar.style.width = '0%';
+    adCancel.disabled = true;
+    const DURATION = 3;
+    let elapsed = 0;
+    adTimer.textContent = `Осталось: ${DURATION} сек`;
+    const timer = setInterval(() => {
+      elapsed += 0.1;
+      adBar.style.width = Math.min(100, (elapsed / DURATION) * 100) + '%';
+      adTimer.textContent = `Осталось: ${Math.max(0, Math.ceil(DURATION - elapsed))} сек`;
+      if (elapsed >= DURATION) {
+        clearInterval(timer);
+        adTimer.textContent = 'Готово! ✅';
+        adCancel.disabled = false;
+      }
+    }, 100);
+    adCancel.onclick = () => {
+      if (adCancel.disabled) return;
+      adOverlay.classList.remove('show');
+      adCancel.onclick = null;
+      if (callback) callback();
+    };
+  }
+
+  // ========================================================================
+  // ИСТОРИЯ
+  // ========================================================================
+  function addHistory(result) {
+    history.unshift({ result, size: SIZE, mode: modeSelect.value, diff: diffSelect.value, ts: Date.now() });
+    if (history.length > 20) history = history.slice(0, 20);
+    renderHistory();
+    saveState();
+  }
+
+  function renderHistory() {
+    historyListEl.innerHTML = '';
+    if (history.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = 'Пока нет партий';
+      historyListEl.appendChild(li);
+      return;
+    }
+    history.forEach(entry => {
+      const li = document.createElement('li');
+      li.className = entry.result === 'X' ? 'win-x' : entry.result === 'O' ? 'win-o' : 'draw';
+      const resText = entry.result === 'X' ? 'Победил X' : entry.result === 'O' ? 'Победил O' : 'Ничья';
+      const resClass = entry.result === 'X' ? 'win-x' : entry.result === 'O' ? 'win-o' : 'draw';
+      const modeText = entry.mode === 'pve' ? 'ИИ' : '2P';
+      const d = new Date(entry.ts);
+      const timeText = d.toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'});
+      li.innerHTML = `<span class="result ${resClass}">${resText}</span><span class="meta">${entry.size}×${entry.size} · ${modeText} · ${timeText}</span>`;
+      historyListEl.appendChild(li);
+    });
+  }
+  clearHistoryBtn.addEventListener('click', () => { history = []; renderHistory(); saveState(); });
+
+  // ========================================================================
+  // ИИ
+  // ========================================================================
+  function aiTurn() {
+    if (gameOver || matchFinished || currentPlayer !== 'O') return;
+    aiThinking = true;
+    updateUndoUI();
+    stopTurnTimer();
+    const diff = diffSelect.value;
+    const delay = diff === 'easy' ? 300 : diff === 'medium' ? 400 : 500;
+    setTimeout(() => {
+      if (gameOver || matchFinished || currentPlayer !== 'O') {
+        aiThinking = false;
+        return;
+      }
+      let move = null;
+      try {
+        if (diff === 'easy') move = randomMove();
+        else if (diff === 'medium') move = mediumMove();
+        else move = bestMove();
+      } catch { move = null; }
+      if (move == null) {
+        const empty = emptyIndices();
+        move = empty.length > 0 ? empty[0] : null;
+      }
+      if (move != null) {
+        Sound.ai();
+        const finished = makeMove(move, 'O');
+        if (!finished && !gameOver && !matchFinished) {
+          currentPlayer = 'X';
+          statusEl.textContent = 'Ход игрока: X';
+          statusEl.style.color = 'var(--accent)';
+          startTurnTimer();
+        }
+      }
+      aiThinking = false;
+      updateUndoUI();
+    }, delay);
+  }
+
+  function emptyIndices() {
+    return state.map((v,i) => v === '' ? i : -1).filter(i => i >= 0);
+  }
+  function randomMove() {
+    const e = emptyIndices();
+    return e.length ? e[Math.floor(Math.random()*e.length)] : null;
+  }
+  function mediumMove() {
+    if (Math.random() < 0.6) {
+      const m = winningMove('O') ?? winningMove('X');
+      if (m != null) return m;
+    }
+    return randomMove();
+  }
+  function winningMove(p) {
+    for (const idx of emptyIndices()) {
+      state[idx] = p;
+      const win = checkWinner();
+      state[idx] = '';
+      if (win) return idx;
+    }
+    return null;
+  }
+  function bestMove() {
+    let m = winningMove('O'); if (m != null) return m;
+    m = winningMove('X'); if (m != null) return m;
+    if (SIZE === 3) {
+      const r = minimax(state.slice(), 0, true, -Infinity, Infinity);
+      return r.index ?? randomMove();
+    }
+    const r = minimaxLimited(state.slice(), 0, true, 3, -Infinity, Infinity);
+    return r.index ?? randomMove();
+  }
+  function minimax(board, depth, isMax, alpha, beta) {
+    const w = winnerOf(board);
+    if (w === 'O') return { score: 10 - depth };
+    if (w === 'X') return { score: depth - 10 };
+    if (board.every(v => v !== '')) return { score: 0 };
+    if (isMax) {
+      let best = { score: -Infinity, index: null };
+      for (let i = 0; i < board.length; i++) {
+        if (board[i] !== '') continue;
+        board[i] = 'O';
+        const r = minimax(board, depth+1, false, alpha, beta);
+        board[i] = '';
+        if (r.score > best.score) best = { score: r.score, index: i };
+        alpha = Math.max(alpha, best.score);
+        if (beta <= alpha) break;
+      }
+      return best;
+    } else {
+      let best = { score: Infinity, index: null };
+      for (let i = 0; i < board.length; i++) {
+        if (board[i] !== '') continue;
+        board[i] = 'X';
+        const r = minimax(board, depth+1, true, alpha, beta);
+        board[i] = '';
+        if (r.score < best.score) best = { score: r.score, index: i };
+        beta = Math.min(beta, best.score);
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+  }
+  function minimaxLimited(board, depth, isMax, maxDepth, alpha, beta) {
+    const w = winnerOf(board);
+    if (w === 'O') return { score: 1000 - depth * 10 };
+    if (w === 'X') return { score: -1000 + depth * 10 };
+    if (board.every(v => v !== '')) return { score: 0 };
+    if (depth >= maxDepth) return { score: evaluate(board) };
+    if (isMax) {
+      let best = { score: -Infinity, index: null };
+      for (let i = 0; i < board.length; i++) {
+        if (board[i] !== '') continue;
+        board[i] = 'O';
+        const r = minimaxLimited(board, depth+1, false, maxDepth, alpha, beta);
+        board[i] = '';
+        if (r.score > best.score) best = { score: r.score, index: i };
+        alpha = Math.max(alpha, best.score);
+        if (beta <= alpha) break;
+      }
+      return best;
+    } else {
+      let best = { score: Infinity, index: null };
+      for (let i = 0; i < board.length; i++) {
+        if (board[i] !== '') continue;
+        board[i] = 'X';
+        const r = minimaxLimited(board, depth+1, true, maxDepth, alpha, beta);
+        board[i] = '';
+        if (r.score < best.score) best = { score: r.score, index: i };
+        beta = Math.min(beta, best.score);
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+  }
+  function evaluate(board) {
+    let s = 0;
+    for (const line of WIN_LINES) {
+      let o = 0, x = 0;
+      for (const i of line) {
+        if (board[i] === 'O') o++;
+        else if (board[i] === 'X') x++;
+      }
+      if (o && x) continue;
+      if (o) s += Math.pow(10, o);
+      if (x) s -= Math.pow(10, x);
+    }
+    return s;
+  }
+  function winnerOf(board) {
+    for (const line of WIN_LINES) {
+      const f = board[line[0]];
+      if (!f) continue;
+      if (line.every(i => board[i] === f)) return f;
+    }
+    return null;
+  }
+
+  // ========================================================================
+  // МАГАЗИН СКИНОВ
+  // ========================================================================
+  function renderSkins() {
+    skinsXEl.innerHTML = ''; skinsOEl.innerHTML = '';
+    Object.entries(SKINS).forEach(([id, skin]) => {
+      const container = skin.type === 'x' ? skinsXEl : skinsOEl;
+      const isOwned = ownedSkins.has(id);
+      const isSelected = (skin.type === 'x' && selectedSkinX === id) || (skin.type === 'o' && selectedSkinO === id);
+      const card = document.createElement('div');
+      card.className = 'skin-card';
+      card.dataset.type = skin.type;
+      if (isSelected) card.classList.add('selected');
+      if (isOwned) card.classList.add('owned');
+      if (!isOwned) card.classList.add('locked');
+
+      let priceLine;
+      if (isSelected) priceLine = `<div class="skin-price">✓ Выбран</div>`;
+      else if (isOwned) priceLine = `<div class="skin-price">Надеть</div>`;
+      else priceLine = `<div class="skin-price">🪙 ${skin.price}</div>`;
+
+      card.innerHTML = `
+        <div class="skin-preview">${skin.svg}</div>
+        <div class="skin-name">${skin.name}</div>
+        ${priceLine}
+        ${isSelected ? '<div class="skin-badge">✓</div>' : ''}
+      `;
+      card.addEventListener('click', () => handleSkinClick(id));
+      container.appendChild(card);
+    });
+  }
+
+  function handleSkinClick(id) {
+    const skin = SKINS[id];
+    if (!skin) return;
+    const isOwned = ownedSkins.has(id);
+    const isSelected = (skin.type === 'x' && selectedSkinX === id) || (skin.type === 'o' && selectedSkinO === id);
+    if (isSelected) return;
+
+    if (isOwned) {
+      if (skin.type === 'x') selectedSkinX = id; else selectedSkinO = id;
+      Sound.buy();
+      renderSkins();
+      saveState();
+      return;
+    }
+
+    skinBuyTitle.textContent = `🎨 Купить «${skin.name}»?`;
+    skinBuyText.innerHTML = `Скин для ${skin.type === 'x' ? 'X' : 'O'}<br>Стоимость: <b style="color:var(--accent)">🪙 ${skin.price}</b><br>У вас: 🪙 ${coins}`;
+    skinBuyConfirm.onclick = () => {
+      if (coins < skin.price) {
+        skinBuyText.innerHTML = `Недостаточно монет!<br>Нужно: 🪙 ${skin.price}<br>У вас: 🪙 ${coins}`;
+        return;
+      }
+      coins -= skin.price;
+      ownedSkins.add(id);
+      if (skin.type === 'x') selectedSkinX = id; else selectedSkinO = id;
+      updateWalletUI();
+      Sound.buy();
+      skinBuyOverlay.classList.remove('show');
+      renderSkins();
+      saveState();
+      showToast('Скин куплен и надет!', 'success');
+    };
+    skinBuyOverlay.classList.add('show');
+  }
+
+  // ========================================================================
+  // МАГАЗИН ЗВЁЗД (TON)
+  // ========================================================================
+  function renderStarPacks() {
+    starsGridEl.innerHTML = '';
+    STAR_PACKS.forEach(pack => {
+      const priceTON = TON_PRICES[pack.id];
+      const total = pack.stars + pack.bonus;
+      const el = document.createElement('div');
+      el.className = 'star-pack';
+      el.innerHTML = `
+        <div class="star-icon">⭐</div>
+        <div class="star-amount">${total} ${total === 1 ? 'звезда' : total < 5 ? 'звезды' : 'звёзд'}</div>
+        ${pack.bonus > 0 ? `<div class="star-bonus">+${pack.bonus} бонус</div>` : ''}
+        <div class="ton-price">${priceTON} TON</div>
+        <button class="ton-buy-btn">💎 Купить</button>
+      `;
+      el.querySelector('.ton-buy-btn').addEventListener('click', () => openTonPay(pack));
+      starsGridEl.appendChild(el);
+    });
+  }
+
+  // ========================================================================
+  // ОПЛАТА TON
+  // ========================================================================
+  function openTonPay(pack) {
+    pendingTONPack = pack;
+    const priceTON = TON_PRICES[pack.id];
+    const total = pack.stars + pack.bonus;
+
+    tonPayAmount.textContent = priceTON + ' TON';
+    tonPayStars.textContent = '+' + total + ' ⭐';
+    tonPayWallet.textContent = TON_WALLET.slice(0, 8) + '...' + TON_WALLET.slice(-6);
+
+    tonPayStatus.style.display = 'none';
+    tonPayStatus.className = 'ton-status';
+    tonPayStatus.textContent = '';
+
+    if (!tonConnectUI) {
+      tonPayStatus.style.display = 'block';
+      tonPayStatus.className = 'ton-status error';
+      tonPayStatus.textContent = 'TON Connect не загружен. Проверь интернет.';
+      tonPayConfirm.disabled = true;
+    } else if (tonConnectUI.connected) {
+      tonPayConfirm.textContent = `Оплатить ${priceTON} TON`;
+      tonPayConfirm.disabled = false;
+    } else {
+      tonPayConfirm.textContent = 'Подключить кошелёк';
+      tonPayConfirm.disabled = false;
+    }
+
+    tonPayOverlay.classList.add('show');
+  }
+
+  tonPayCancel.addEventListener('click', () => {
+    tonPayOverlay.classList.remove('show');
+    pendingTONPack = null;
+  });
+
+  tonPayConfirm.addEventListener('click', async () => {
+    if (!pendingTONPack || !tonConnectUI) return;
+
+    const pack = pendingTONPack;
+    const priceTON = TON_PRICES[pack.id];
+    const total = pack.stars + pack.bonus;
+
+    if (!tonConnectUI.connected) {
+      try {
+        tonPayStatus.style.display = 'block';
+        tonPayStatus.className = 'ton-status';
+        tonPayStatus.innerHTML = '<span class="ton-spinner"></span>Подключение к кошельку...';
+        tonPayConfirm.disabled = true;
+
+        await tonConnectUI.openModal();
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Timeout')), 120000);
+          const unsub = tonConnectUI.onStatusChange(w => {
+            if (w) {
+              clearTimeout(timeout);
+              unsub();
+              resolve();
+            }
+          });
+        });
+
+        tonPayConfirm.disabled = false;
+        tonPayConfirm.textContent = `Оплатить ${priceTON} TON`;
+        tonPayStatus.style.display = 'none';
+      } catch (e) {
+        tonPayStatus.className = 'ton-status error';
+        tonPayStatus.textContent = 'Не удалось подключить кошелёк';
+        tonPayConfirm.disabled = false;
+        return;
+      }
+    }
+
+    try {
+      tonPayConfirm.disabled = true;
+      tonPayStatus.style.display = 'block';
+      tonPayStatus.className = 'ton-status';
+      tonPayStatus.innerHTML = '<span class="ton-spinner"></span>Отправка транзакции...';
+
+      const tx = {
+        validUntil: Math.floor(Date.now() / 1000) + 300,
+        messages: [{
+          address: TON_WALLET,
+          amount: (priceTON * 1e9).toString(),
+          payload: btoa(JSON.stringify({
+            packId: pack.id,
+            userId: tgUser?.id || 0,
+            stars: total,
+            ts: Date.now()
+          }))
+        }]
+      };
+
+      const result = await tonConnectUI.sendTransaction(tx);
+
+      if (!result.boc) {
+        throw new Error('Транзакция не отправлена');
+      }
+
+      tonPayStatus.className = 'ton-status success';
+      tonPayStatus.innerHTML = '✅ Транзакция отправлена! Звёзды зачисляются...';
+
+      setTimeout(() => {
+        addStars(total);
+        Sound.buy();
+        showToast(`⭐ Зачислено ${total} звёзд!`, 'success');
+        tonPayOverlay.classList.remove('show');
+        pendingTONPack = null;
+      }, 8000);
+
+    } catch (err) {
+      console.error(err);
+      tonPayConfirm.disabled = false;
+      tonPayStatus.className = 'ton-status error';
+
+      const msg = (err.message || '').toLowerCase();
+      if (msg.includes('cancel') || msg.includes('reject') || msg.includes('user')) {
+        tonPayStatus.textContent = '❌ Оплата отменена';
+      } else if (msg.includes('timeout')) {
+        tonPayStatus.textContent = '⏱ Тайм-аут. Попробуйте ещё раз.';
+      } else {
+        tonPayStatus.textContent = '❌ Ошибка оплаты: ' + (err.message || 'неизвестно');
+      }
+    }
+  });
+
+  // ========================================================================
+  // ЕЖЕДНЕВНАЯ
+  // ========================================================================
+  function canClaimDaily() {
+    if (!dailyLastClaim) return true;
+    return Date.now() - dailyLastClaim >= 20 * 60 * 60 * 1000;
+  }
+  function renderDaily() {
+    dailyRewardsEl.innerHTML = '';
+    const canClaim = canClaimDaily();
+    let idx = canClaim ? (dailyStreak >= 7 ? 0 : dailyStreak) : -1;
+    DAILY_REWARDS.forEach((r, i) => {
+      const day = document.createElement('div');
+      day.className = 'daily-day';
+      if (i < idx) day.classList.add('claimed');
+      if (i === idx && canClaim) day.classList.add('today');
+      day.innerHTML = `
+        <div class="day-label">День ${i+1}</div>
+        <div class="day-icon">${r.icon}</div>
+        <div class="day-reward">+${r.coins}🪙</div>
+      `;
+      dailyRewardsEl.appendChild(day);
+    });
+    dailyClaim.disabled = !canClaim;
+    dailyClaim.textContent = canClaim ? 'Забрать' : 'Уже получено';
+  }
+  function updateDailyButton() {
+    if (canClaimDaily()) {
+      dailyBtn.classList.add('pulse');
+      if (!dailyBtn.querySelector('.dot')) {
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        dailyBtn.appendChild(dot);
+      }
+    } else {
+      dailyBtn.classList.remove('pulse');
+      dailyBtn.querySelector('.dot')?.remove();
+    }
+  }
+  dailyBtn.addEventListener('click', () => { renderDaily(); dailyOverlay.classList.add('show'); });
+  dailyClose.addEventListener('click', () => dailyOverlay.classList.remove('show'));
+  dailyClaim.addEventListener('click', () => {
+    if (!canClaimDaily()) return;
+    const i = dailyStreak >= 7 ? 0 : dailyStreak;
+    addCoins(DAILY_REWARDS[i].coins);
+    dailyLastClaim = Date.now();
+    dailyStreak = (dailyStreak >= 7 ? 1 : dailyStreak + 1);
+    if (dailyStreak > 7) dailyStreak = 7;
+    saveState();
+    updateDailyButton();
+    renderDaily();
+    showToast(`🎁 +${DAILY_REWARDS[i].coins}🪙`, 'success');
+  });
+
+  // ========================================================================
+  // МАГАЗИН — ВКЛАДКИ
+  // ========================================================================
+  function openShop() {
+    shopOverlay.classList.add('show');
+    renderSkins();
+    renderStarPacks();
+  }
+  shopBtn.addEventListener('click', openShop);
+  buyStarsBtn.addEventListener('click', () => { openShop(); switchShopTab('stars'); });
+  closeShopBtn.addEventListener('click', () => shopOverlay.classList.remove('show'));
+  shopOverlay.addEventListener('click', e => { if (e.target === shopOverlay) shopOverlay.classList.remove('show'); });
+
+  document.querySelectorAll('.shop-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchShopTab(tab.dataset.tab));
+  });
+  function switchShopTab(name) {
+    document.querySelectorAll('.shop-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.shop-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+    if (name === 'skins') renderSkins();
+    if (name === 'stars') renderStarPacks();
+  }
+
+  // ========================================================================
+  // КНОПКИ
+  // ========================================================================
+  restartBtn.addEventListener('click', () => { stopTurnTimer(); resetBoardOnly(); });
+  resetAllBtn.addEventListener('click', () => {
+    score = { X: 0, O: 0, D: 0 };
+    winStrike = 0; loseStrike = 0;
+    updateScoreUI(); updateStrikesUI();
+    resetMatch();
+    saveState();
+    initBoard();
+  });
+  sizeSelect.addEventListener('change', () => { stopTurnTimer(); saveState(); resetMatch(); initBoard(); });
+  modeSelect.addEventListener('change', () => { stopTurnTimer(); saveState(); resetMatch(); initBoard(); });
+  diffSelect.addEventListener('change', () => saveState());
+  matchSelect.addEventListener('change', () => { stopTurnTimer(); saveState(); resetMatch(); initBoard(); });
+
+  // ========================================================================
+  // СТАРТ
+  // ========================================================================
+  (function boot() {
+    initTonConnect();
+
+    const saved = loadState();
+    if (saved) {
+      if (saved.size) sizeSelect.value = saved.size;
+      if (saved.mode) modeSelect.value = saved.mode;
+      if (saved.diff) diffSelect.value = saved.diff;
+      if (saved.matchLen) matchSelect.value = saved.matchLen;
+      if (saved.score) score = { ...score, ...saved.score };
+      if (Array.isArray(saved.history)) history = saved.history;
+      if (typeof saved.coins === 'number') coins = saved.coins;
+      if (typeof saved.stars === 'number') stars = saved.stars;
+      if (Array.isArray(saved.ownedSkins)) ownedSkins = new Set(saved.ownedSkins);
+      if (saved.selectedSkinX && SKINS[saved.selectedSkinX]) selectedSkinX = saved.selectedSkinX;
+      if (saved.selectedSkinO && SKINS[saved.selectedSkinO]) selectedSkinO = saved.selectedSkinO;
+      if (typeof saved.winStrike === 'number') winStrike = saved.winStrike;
+      if (typeof saved.loseStrike === 'number') loseStrike = saved.loseStrike;
+      if (typeof saved.dailyLastClaim === 'number') dailyLastClaim = saved.dailyLastClaim;
+      if (typeof saved.dailyStreak === 'number') dailyStreak = saved.dailyStreak;
+      ownedSkins.add('x_classic'); ownedSkins.add('o_classic');
+    }
+    updateScoreUI();
+    updateWalletUI();
+    updateStrikesUI();
+    renderHistory();
+    initBoard();
+    updateDailyButton();
+    setInterval(updateDailyButton, 60 * 1000);
+
+    if (canClaimDaily()) setTimeout(() => showToast('🎁 Доступна ежедневная награда!', 'success'), 1200);
+  })();
+</script>
+
+</body>
+</html>
