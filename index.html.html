@@ -1,0 +1,3277 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Крестики-нолики Pro</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-1: #0f0e1a;
+    --bg-2: #1a1830;
+    --accent: #ffd166;
+    --x-color: #4cc9f0;
+    --o-color: #f72585;
+    --panel: rgba(255,255,255,0.05);
+    --good: #7bffb0;
+    --bad: #ff6b6b;
+  }
+
+  html, body { height: 100%; overflow-x: hidden; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    background: var(--bg-1);
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(76,201,240,0.12), transparent 45%),
+      radial-gradient(circle at 80% 100%, rgba(247,37,133,0.12), transparent 45%),
+      linear-gradient(135deg, var(--bg-1), var(--bg-2));
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #fff;
+    padding: 12px;
+    gap: 12px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1 {
+    font-size: 22px;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, var(--x-color), var(--accent), var(--o-color));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .top-bar {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .wallet {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    background: var(--panel);
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .wallet .icon { font-size: 16px; }
+  .wallet.coins .icon { filter: drop-shadow(0 0 6px #ffd166); }
+  .wallet.stars .icon { filter: drop-shadow(0 0 6px #a78bfa); }
+
+  .wallet button {
+    padding: 2px 9px;
+    font-size: 12px;
+    background: linear-gradient(135deg, #a78bfa, #4cc9f0);
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 700;
+    margin-left: 4px;
+  }
+
+  .profile-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    width: 100%;
+    max-width: 420px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .profile-bar:hover { background: rgba(255,255,255,0.08); }
+  .profile-avatar {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+  }
+  .profile-avatar img,
+  .profile-avatar .avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    background: rgba(255,255,255,0.1);
+  }
+  .profile-avatar .frame-svg {
+    position: absolute;
+    inset: -6px;
+    pointer-events: none;
+  }
+  .profile-info { flex: 1; min-width: 0; }
+  .profile-name {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .profile-level-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #aaa;
+  }
+  .profile-level-badge {
+    background: linear-gradient(135deg, #ffd166, #f72585);
+    color: #1e1e2f;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 11px;
+  }
+  .xp-bar-wrap {
+    width: 100%;
+    height: 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 5px;
+  }
+  .xp-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4cc9f0, #ffd166);
+    transition: width 0.4s ease;
+    border-radius: 4px;
+  }
+
+  .strikes {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .strike {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--panel);
+    transition: all 0.3s;
+  }
+  .strike .val { font-size: 15px; min-width: 18px; text-align: center; }
+  .strike.win.active {
+    background: rgba(123,255,176,0.15);
+    border-color: rgba(123,255,176,0.5);
+    color: var(--good);
+  }
+  .strike.lose.active {
+    background: rgba(255,107,107,0.15);
+    border-color: rgba(255,107,107,0.5);
+    color: var(--bad);
+  }
+
+  .settings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    padding: 8px 12px;
+    background: var(--panel);
+    border-radius: 12px;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .settings label { display: flex; align-items: center; gap: 5px; }
+
+  select {
+    padding: 5px 8px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+  }
+  select option { background: #2a2a45; color: #fff; }
+
+  .match-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    padding: 8px 16px;
+    background: var(--panel);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    width: 100%;
+    max-width: 420px;
+  }
+  .match-score {
+    display: flex;
+    gap: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    align-items: center;
+  }
+  .match-score .x { color: var(--x-color); }
+  .match-score .o { color: var(--o-color); }
+  .match-score .vs { color: #888; font-size: 12px; }
+
+  .turn-timer {
+    width: 100%;
+    max-width: 300px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #ccc;
+  }
+  .turn-timer .bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .turn-timer .bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #7bffb0, #ffd166);
+    transition: width 0.1s linear;
+    border-radius: 6px;
+  }
+  .turn-timer.warning .bar {
+    background: linear-gradient(90deg, #ffd166, #ff6b6b);
+  }
+  .turn-timer.danger .bar {
+    background: linear-gradient(90deg, #ff6b6b, #f72585);
+  }
+  .turn-timer .time-text {
+    min-width: 38px;
+    text-align: right;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .score {
+    display: flex;
+    gap: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 7px 16px;
+    background: var(--panel);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .score .x { color: var(--x-color); }
+  .score .o { color: var(--o-color); }
+  .score .draw { color: var(--accent); }
+
+  #status {
+    font-size: 16px;
+    min-height: 24px;
+    font-weight: 600;
+    color: var(--accent);
+    text-align: center;
+  }
+
+  .board {
+    display: grid;
+    gap: 5px;
+    padding: 10px;
+    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .cell {
+    background: linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03));
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 10px;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0;
+  }
+  .cell:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+    transform: scale(1.04);
+  }
+  .cell:disabled { cursor: default; }
+
+  .piece {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: dropIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    width: 80%;
+    height: 80%;
+  }
+  @keyframes dropIn {
+    0%   { transform: translateY(-200%) scale(0.3) rotate(-40deg); opacity: 0; }
+    55%  { transform: translateY(10%)  scale(1.15) rotate(8deg);   opacity: 1; }
+    75%  { transform: translateY(-5%)  scale(0.95) rotate(-4deg); }
+    100% { transform: translateY(0)    scale(1)    rotate(0);      opacity: 1; }
+  }
+  .piece svg { width: 100%; height: 100%; display: block; }
+  .cell.x .piece { color: var(--x-color); filter: drop-shadow(0 0 8px rgba(76,201,240,0.7)); }
+  .cell.o .piece { color: var(--o-color); filter: drop-shadow(0 0 8px rgba(247,37,133,0.7)); }
+  .cell.win {
+    background: rgba(255,209,102,0.2);
+    box-shadow: 0 0 20px rgba(255,209,102,0.5);
+  }
+
+  .buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  button {
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e1e2f;
+    background: linear-gradient(135deg, #ffd166, #ffb84d);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(255,209,102,0.25);
+  }
+  button:hover:not(:disabled) { transform: translateY(-2px); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  button.secondary {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    box-shadow: none;
+  }
+  button.purple {
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    color: #fff;
+  }
+  button.gift {
+    background: linear-gradient(135deg, #7bffb0, #4cc9f0);
+    color: #0f0e1a;
+    position: relative;
+  }
+  button.gift .dot {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 11px;
+    height: 11px;
+    background: #f72585;
+    border-radius: 50%;
+  }
+
+  #undoBtn {
+    position: relative;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    color: #fff;
+  }
+  #undoBtn .badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #f72585;
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-weight: 700;
+  }
+
+  .history-wrap {
+    width: 100%;
+    max-width: 420px;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .history-wrap h3 {
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: var(--accent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .history-wrap h3 button {
+    padding: 3px 9px;
+    font-size: 11px;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    box-shadow: none;
+    border-radius: 6px;
+  }
+  #historyList {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+  #historyList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 9px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 7px;
+    border-left: 3px solid #666;
+  }
+  #historyList li.win-x { border-left-color: var(--x-color); }
+  #historyList li.win-o { border-left-color: var(--o-color); }
+  #historyList li.draw  { border-left-color: var(--accent); }
+  #historyList .result { font-weight: 700; font-size: 12px; }
+  #historyList .result.win-x { color: var(--x-color); }
+  #historyList .result.win-o { color: var(--o-color); }
+  #historyList .result.draw  { color: var(--accent); }
+  #historyList .meta { font-size: 10px; color: #aaa; }
+  #historyList .empty {
+    justify-content: center;
+    color: #888;
+    font-style: italic;
+    border-left: none;
+    background: transparent;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+    backdrop-filter: blur(6px);
+  }
+  .overlay.show { display: flex; }
+
+  .modal {
+    background: linear-gradient(180deg, #2a2a45, #1f1e35);
+    border-radius: 18px;
+    padding: 20px;
+    max-width: 380px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 10px; color: var(--accent); }
+  .modal p { font-size: 13px; color: #ccc; margin-bottom: 16px; line-height: 1.45; }
+  .modal .buttons { justify-content: center; }
+
+  .story-modal { max-width: 520px; text-align: left; }
+  .story-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 14px;
+    background: rgba(0,0,0,0.2);
+    padding: 4px;
+    border-radius: 10px;
+  }
+  .story-tab {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 12px;
+    color: #bbb;
+    border: none;
+    background: transparent;
+  }
+  .story-tab.active {
+    background: linear-gradient(135deg, #a78bfa, #4cc9f0);
+    color: #fff;
+  }
+  .story-panel { display: none; }
+  .story-panel.active { display: block; }
+
+  .chapter {
+    margin-bottom: 14px;
+    padding: 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    border-left: 3px solid var(--accent);
+  }
+  .chapter.locked { opacity: 0.4; border-left-color: #666; }
+  .chapter.completed { border-left-color: var(--good); }
+  .chapter-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .chapter-desc {
+    font-size: 12px;
+    color: #ccc;
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+  .chapter-reward {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 11px;
+    color: #aaa;
+    flex-wrap: wrap;
+  }
+  .chapter-reward span {
+    background: rgba(255,255,255,0.08);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .chapter-reward span.done { color: var(--good); }
+
+  /* Ежедневные миссии */
+  .daily-mission {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    border-left: 3px solid #666;
+    gap: 8px;
+  }
+  .daily-mission.active { border-left-color: var(--accent); }
+  .daily-mission.completed { border-left-color: var(--good); opacity: 0.7; }
+  .daily-mission .mission-body { flex: 1; min-width: 0; }
+  .daily-mission .mission-name {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+  .daily-mission .mission-progress {
+    font-size: 11px;
+    color: #aaa;
+  }
+  .daily-mission .mission-reward {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .daily-mission.completed .mission-reward { color: var(--good); }
+  .daily-mission .claim-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+    background: linear-gradient(135deg, #7bffb0, #4cc9f0);
+    color: #0f0e1a;
+    border-radius: 8px;
+    border: none;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: none;
+  }
+  .daily-mission .claim-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .daily-missions-timer {
+    font-size: 11px;
+    color: #aaa;
+    text-align: center;
+    margin-bottom: 10px;
+    padding: 6px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+  }
+
+  .profile-modal { max-width: 460px; }
+  .profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .profile-big-avatar {
+    position: relative;
+    width: 96px;
+    height: 96px;
+  }
+  .profile-big-avatar img,
+  .profile-big-avatar .avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 44px;
+    background: rgba(255,255,255,0.1);
+  }
+  .profile-big-avatar .frame-svg {
+    position: absolute;
+    inset: -10px;
+    pointer-events: none;
+  }
+  .profile-big-name { font-size: 18px; font-weight: 800; }
+  .profile-big-level { font-size: 13px; color: #aaa; }
+  .profile-xp-block { margin-bottom: 16px; }
+  .profile-xp-title {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #aaa;
+    margin-bottom: 5px;
+  }
+  .profile-xp-bar {
+    height: 10px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .profile-xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4cc9f0, #ffd166);
+    border-radius: 6px;
+    transition: width 0.5s ease;
+  }
+  .profile-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .profile-stat {
+    background: rgba(255,255,255,0.04);
+    padding: 10px;
+    border-radius: 10px;
+    text-align: center;
+  }
+  .profile-stat .val {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .profile-stat .lbl {
+    font-size: 10px;
+    color: #888;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .profile-section-title {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-align: left;
+  }
+
+  .frames-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .frame-card {
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .frame-card:hover:not(.locked) { background: rgba(255,255,255,0.08); }
+  .frame-card.selected {
+    border-color: var(--accent);
+    background: rgba(255,209,102,0.1);
+  }
+  .frame-card.locked { opacity: 0.4; cursor: not-allowed; }
+  .frame-preview {
+    width: 44px;
+    height: 44px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .frame-preview .circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+  }
+  .frame-preview svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .frame-name {
+    font-size: 9px;
+    color: #ccc;
+    font-weight: 600;
+    text-align: center;
+  }
+  .frame-level {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 9px;
+    padding: 1px 5px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 8px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .frame-level.unlocked {
+    background: rgba(123,255,176,0.3);
+    color: var(--good);
+  }
+
+  .shop-modal { max-width: 520px; text-align: left; }
+  .shop-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 14px;
+    background: rgba(0,0,0,0.2);
+    padding: 4px;
+    border-radius: 10px;
+  }
+  .shop-tab {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 13px;
+    color: #bbb;
+    border: none;
+    background: transparent;
+  }
+  .shop-tab.active {
+    background: linear-gradient(135deg, #a78bfa, #4cc9f0);
+    color: #fff;
+  }
+  .shop-panel { display: none; }
+  .shop-panel.active { display: block; }
+
+  .skin-section { margin-bottom: 16px; }
+  .skin-section h3 {
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .skins-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+    gap: 8px;
+  }
+  .skin-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 10px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    position: relative;
+  }
+  .skin-card.selected {
+    border-color: var(--accent);
+    background: rgba(255,209,102,0.1);
+  }
+  .skin-card.locked .skin-preview { filter: grayscale(1) opacity(0.4); }
+  .skin-preview {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--x-color);
+  }
+  .skin-card[data-type="o"] .skin-preview { color: var(--o-color); }
+  .skin-preview svg { width: 100%; height: 100%; }
+  .skin-name { font-size: 10px; color: #ddd; font-weight: 600; text-align: center; }
+  .skin-price { font-size: 11px; font-weight: 700; color: var(--accent); }
+  .skin-card.selected .skin-price { color: var(--good); }
+  .skin-card.owned .skin-price { color: var(--good); }
+  .skin-badge {
+    position: absolute;
+    top: 4px; right: 4px;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: var(--good);
+    color: #1e1e2f;
+    font-weight: 700;
+  }
+  .skin-badge.story {
+    background: linear-gradient(135deg, #a78bfa, #f72585);
+    color: #fff;
+  }
+
+  .stars-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .star-pack {
+    background: linear-gradient(160deg, rgba(167,139,250,0.15), rgba(76,201,240,0.08));
+    border: 1px solid rgba(167,139,250,0.3);
+    border-radius: 12px;
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .star-pack .star-icon { font-size: 28px; }
+  .star-pack .star-amount { font-size: 14px; font-weight: 800; }
+  .star-pack .star-bonus { font-size: 10px; color: var(--good); font-weight: 700; }
+
+  .ton-buy-btn {
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #0098EA, #0077B6);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0,152,234,0.3);
+  }
+  .ton-buy-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .ton-buy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .ton-price {
+    font-size: 12px;
+    color: #7cc8f0;
+    font-weight: 600;
+  }
+
+  .shop-hint {
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .daily-rewards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .daily-day {
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 10px 4px;
+    text-align: center;
+    border: 2px solid transparent;
+  }
+  .daily-day.claimed {
+    background: rgba(123,255,176,0.08);
+    border-color: rgba(123,255,176,0.4);
+  }
+  .daily-day.today {
+    border-color: var(--accent);
+    background: rgba(255,209,102,0.1);
+  }
+  .daily-day .day-label { font-size: 10px; color: #aaa; margin-bottom: 3px; }
+  .daily-day .day-icon { font-size: 18px; margin-bottom: 3px; }
+  .daily-day .day-reward { font-size: 11px; font-weight: 700; color: var(--accent); }
+  .daily-day.claimed .day-reward { color: var(--good); }
+
+  .ad-screen {
+    background: linear-gradient(135deg, #f72585, #4cc9f0);
+    border-radius: 12px;
+    padding: 26px 18px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .ad-screen .ad-tag {
+    position: absolute;
+    top: 8px; left: 8px;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .ad-screen .ad-content {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .ad-screen .ad-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,0.9);
+    margin-top: 6px;
+  }
+  .ad-timer { font-size: 13px; color: #aaa; margin-bottom: 12px; }
+  .ad-progress {
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .ad-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ffd166, #f72585);
+  }
+
+  .toast {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-120%);
+    background: linear-gradient(135deg, #2a2a45, #1f1e35);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    z-index: 200;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: rgba(123,255,176,0.5); color: var(--good); }
+  .toast.error   { border-color: rgba(255,107,107,0.5); color: var(--bad); }
+
+  .tg-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #ccc;
+    background: var(--panel);
+    padding: 6px 14px;
+    border-radius: 30px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .tg-user img { width: 24px; height: 24px; border-radius: 50%; }
+
+  #ton-connect-btn {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0;
+  }
+
+  .ton-pay-modal { max-width: 400px; }
+  .ton-pay-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .ton-pay-header .ton-logo { font-size: 40px; }
+  .ton-pay-header .ton-amount {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .ton-pay-header .ton-stars { font-size: 14px; color: #ccc; }
+  .ton-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .ton-info-row span:first-child { color: #888; }
+  .ton-info-row span:last-child { color: #fff; font-weight: 600; }
+  .ton-status {
+    padding: 12px;
+    background: rgba(0,152,234,0.1);
+    border: 1px solid rgba(0,152,234,0.3);
+    border-radius: 10px;
+    font-size: 13px;
+    margin: 14px 0;
+    color: #7cc8f0;
+  }
+  .ton-status.success {
+    background: rgba(123,255,176,0.1);
+    border-color: rgba(123,255,176,0.4);
+    color: var(--good);
+  }
+  .ton-status.error {
+    background: rgba(255,107,107,0.1);
+    border-color: rgba(255,107,107,0.4);
+    color: var(--bad);
+  }
+  .ton-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #4cc9f0;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .levelup-toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.6);
+    background: linear-gradient(135deg, #a78bfa, #f72585);
+    padding: 24px 40px;
+    border-radius: 20px;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    z-index: 300;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 20px 60px rgba(167,139,250,0.6);
+    text-align: center;
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .levelup-toast.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .levelup-toast .sub {
+    display: block;
+    font-size: 13px;
+    margin-top: 6px;
+    font-weight: 500;
+    opacity: 0.9;
+  }
+</style>
+</head>
+<body>
+
+  <div class="tg-user" id="tgUser" style="display:none;"></div>
+
+  <h1>КРЕСТИКИ-НОЛИКИ PRO</h1>
+
+  <div class="profile-bar" id="profileBar">
+    <div class="profile-avatar">
+      <div id="profileAvatarImg"></div>
+      <div class="frame-svg" id="profileFrame"></div>
+    </div>
+    <div class="profile-info">
+      <div class="profile-name" id="profileName">Игрок</div>
+      <div class="profile-level-row">
+        <span class="profile-level-badge" id="profileLevel">Ур. 1</span>
+        <span id="profileXP">0 / 100 XP</span>
+      </div>
+      <div class="xp-bar-wrap">
+        <div class="xp-bar" id="profileXPBar" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="top-bar">
+    <div class="wallet coins">
+      <span class="icon">🪙</span>
+      <span id="coinsCount">0</span>
+    </div>
+    <div class="wallet stars">
+      <span class="icon">⭐</span>
+      <span id="starsCount">0</span>
+      <button id="buyStarsBtn">+</button>
+    </div>
+    <button id="shopBtn" class="purple">🛍</button>
+    <button id="storyBtn" class="purple">📖</button>
+    <button id="dailyMissionsBtn" class="purple">🎯</button>
+    <button id="dailyBtn" class="gift">🎁</button>
+  </div>
+
+  <div id="ton-connect-btn"></div>
+
+  <div class="strikes">
+    <div class="strike win" id="winStrike">
+      🔥 WinStrike: <span class="val" id="winStrikeVal">0</span>
+    </div>
+    <div class="strike lose" id="loseStrike">
+      💧 LoseStrike: <span class="val" id="loseStrikeVal">0</span>
+    </div>
+  </div>
+
+  <div class="settings">
+    <label>Размер:
+      <select id="sizeSelect">
+        <option value="3">3 × 3</option>
+        <option value="4">4 × 4</option>
+        <option value="5">5 × 5</option>
+      </select>
+    </label>
+    <label>Режим:
+      <select id="modeSelect">
+        <option value="pvp">2 игрока</option>
+        <option value="pve" selected>Против ИИ</option>
+      </select>
+    </label>
+    <label>Сложность:
+      <select id="diffSelect">
+        <option value="d1">Новичок</option>
+        <option value="d2">Легко</option>
+        <option value="d3" selected>Средне</option>
+        <option value="d4">Сложно</option>
+        <option value="d5">Опытный</option>
+        <option value="d6">Мастер</option>
+        <option value="d7">Непобедимо</option>
+      </select>
+    </label>
+    <label>Матч:
+      <select id="matchSelect">
+        <option value="1">До 1 победы</option>
+        <option value="2" selected>До 2 побед</option>
+        <option value="3">До 3 побед</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="match-panel">
+    <div class="match-score">
+      <span class="x">X: <span id="matchX">0</span></span>
+      <span class="vs" id="matchInfo">матч до 2 побед</span>
+      <span class="o">O: <span id="matchO">0</span></span>
+    </div>
+    <div class="turn-timer" id="turnTimer">
+      <span>⏱</span>
+      <div class="bar-wrap"><div class="bar" id="timerBar"></div></div>
+      <span class="time-text" id="timerText">15с</span>
+    </div>
+  </div>
+
+  <div class="score">
+    <div class="x">X: <span id="scoreX">0</span></div>
+    <div class="o">O: <span id="scoreO">0</span></div>
+    <div class="draw">Ничьи: <span id="scoreD">0</span></div>
+  </div>
+
+  <div id="status">Ход игрока: X</div>
+
+  <div class="board" id="board"></div>
+
+  <div class="buttons">
+    <button id="undoBtn">↩ Отменить <span class="badge" id="undoBadge">2</span></button>
+    <button id="restart">Новый раунд</button>
+    <button id="resetAll" class="secondary">Сбросить</button>
+  </div>
+
+  <div class="history-wrap">
+    <h3>
+      Последние партии
+      <button id="clearHistory" class="secondary">Очистить</button>
+    </h3>
+    <ul id="historyList"></ul>
+  </div>
+
+  <!-- Магазин -->
+  <div class="overlay" id="shopOverlay">
+    <div class="modal shop-modal">
+      <h2>🛍 Магазин</h2>
+      <div class="shop-tabs">
+        <button class="shop-tab active" data-tab="skins">Скины</button>
+        <button class="shop-tab" data-tab="stars">Звёзды</button>
+      </div>
+      <div class="shop-panel active" id="panel-skins">
+        <div class="skin-section">
+          <h3>Скины для X</h3>
+          <div class="skins-grid" id="skinsX"></div>
+        </div>
+        <div class="skin-section">
+          <h3>Скины для O</h3>
+          <div class="skins-grid" id="skinsO"></div>
+        </div>
+        <div class="shop-hint">Скины со значком 📖 открываются за сюжет.</div>
+      </div>
+      <div class="shop-panel" id="panel-stars">
+        <div class="stars-grid" id="starsGrid"></div>
+        <div class="shop-hint">💎 Оплата через TON (Tonkeeper).</div>
+      </div>
+      <div class="buttons" style="margin-top:14px;">
+        <button id="closeShop" class="secondary">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Сюжет -->
+  <div class="overlay" id="storyOverlay">
+    <div class="modal story-modal">
+      <h2>📖 Сюжет и миссии</h2>
+      <div class="story-tabs">
+        <button class="story-tab active" data-tab="story">Сюжет</button>
+        <button class="story-tab" data-tab="missions">Миссии</button>
+      </div>
+      <div class="story-panel active" id="storyPanelStory">
+        <div id="chaptersList"></div>
+      </div>
+      <div class="story-panel" id="storyPanelMissions">
+        <div id="missionsList"></div>
+      </div>
+      <div class="buttons" style="margin-top:14px;">
+        <button id="closeStory" class="secondary">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ежедневные миссии -->
+  <div class="overlay" id="dailyMissionsOverlay">
+    <div class="modal story-modal">
+      <h2>🎯 Ежедневные миссии</h2>
+      <div class="daily-missions-timer" id="dailyMissionsTimer">Обновление через: 24:00</div>
+      <div id="dailyMissionsList"></div>
+      <div class="buttons" style="margin-top:14px;">
+        <button id="closeDailyMissions" class="secondary">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Профиль -->
+  <div class="overlay" id="profileOverlay">
+    <div class="modal profile-modal">
+      <h2>👤 Профиль</h2>
+      <div class="profile-header">
+        <div class="profile-big-avatar">
+          <div id="profileBigAvatarImg"></div>
+          <div class="frame-svg" id="profileBigFrame"></div>
+        </div>
+        <div class="profile-big-name" id="profileBigName">Игрок</div>
+        <div class="profile-big-level" id="profileBigLevel">Уровень 1</div>
+      </div>
+      <div class="profile-xp-block">
+        <div class="profile-xp-title">
+          <span>Опыт</span>
+          <span id="profileXPText">0 / 100 XP</span>
+        </div>
+        <div class="profile-xp-bar">
+          <div class="profile-xp-fill" id="profileXPBar2" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="profile-stats">
+        <div class="profile-stat">
+          <div class="val" id="profileStatWins">0</div>
+          <div class="lbl">Побед</div>
+        </div>
+        <div class="profile-stat">
+          <div class="val" id="profileStatMatches">0</div>
+          <div class="lbl">Матчей</div>
+        </div>
+        <div class="profile-stat">
+          <div class="val" id="profileStatMissions">0</div>
+          <div class="lbl">Миссий</div>
+        </div>
+      </div>
+      <div class="profile-section-title">🖼️ Рамки для аватарки</div>
+      <div class="frames-grid" id="framesGrid"></div>
+      <div class="buttons" style="margin-top:10px;">
+        <button id="closeProfile" class="secondary">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TON оплата -->
+  <div class="overlay" id="tonPayOverlay">
+    <div class="modal ton-pay-modal">
+      <h2>💎 Оплата TON</h2>
+      <div class="ton-pay-header">
+        <div class="ton-logo">💎</div>
+        <div class="ton-amount" id="tonPayAmount">0.00 TON</div>
+        <div class="ton-stars" id="tonPayStars">+0 ⭐</div>
+      </div>
+      <div class="ton-info-row">
+        <span>Кошелёк:</span>
+        <span id="tonPayWallet">UQ...</span>
+      </div>
+      <div class="ton-info-row">
+        <span>Сеть:</span>
+        <span>TON Mainnet</span>
+      </div>
+      <div class="ton-info-row">
+        <span>Комиссия:</span>
+        <span>~0.01 TON</span>
+      </div>
+      <div class="ton-status" id="tonPayStatus" style="display:none;"></div>
+      <div class="buttons">
+        <button id="tonPayConfirm">Подключить кошелёк</button>
+        <button id="tonPayCancel" class="secondary">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ежедневная награда -->
+  <div class="overlay" id="dailyOverlay">
+    <div class="modal">
+      <h2>🎁 Ежедневная награда</h2>
+      <p>Заходи каждый день и получай монеты!</p>
+      <div class="daily-rewards" id="dailyRewards"></div>
+      <div class="buttons">
+        <button id="dailyClaim">Забрать</button>
+        <button id="dailyClose" class="secondary">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Реклама -->
+  <div class="overlay" id="adOverlay">
+    <div class="modal">
+      <h2>📺 Реклама</h2>
+      <p>Посмотрите рекламу, чтобы получить отмену хода.</p>
+      <div class="ad-screen">
+        <span class="ad-tag">РЕКЛАМА</span>
+        <div class="ad-content">🎮 Играй ещё круче!</div>
+        <div class="ad-sub">Скачай и получи 100 бонусов</div>
+      </div>
+      <div class="ad-progress"><div class="ad-progress-bar" id="adBar"></div></div>
+      <div class="ad-timer" id="adTimer">Осталось: 3 сек</div>
+      <div class="buttons">
+        <button id="adCancel" class="secondary" disabled>Пропустить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Отмена -->
+  <div class="overlay" id="undoOverlay">
+    <div class="modal">
+      <h2>↩ Отмена хода</h2>
+      <p id="undoText">Потратить 1 отмену?</p>
+      <div class="buttons">
+        <button id="undoConfirm">Смотреть рекламу</button>
+        <button id="undoCancel" class="secondary">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Покупка скина -->
+  <div class="overlay" id="skinBuyOverlay">
+    <div class="modal">
+      <h2 id="skinBuyTitle">🎨 Покупка скина</h2>
+      <p id="skinBuyText">Купить скин?</p>
+      <div class="buttons">
+        <button id="skinBuyConfirm">Купить</button>
+        <button id="skinBuyCancel" class="secondary">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="levelup-toast" id="levelupToast"></div>
+
+<script>
+  // ========================================================================
+  // НАСТРОЙКИ
+  // ========================================================================
+  const TON_WALLET = 'UQC1DG4cfYQbisJHj0w9_BM5tRl9naOETkLgcZpMOw0dEMTc';
+
+  const TON_PRICES = {
+    s1: 0.05, s2: 0.10, s3: 0.25, s4: 0.50, s5: 1.25, s6: 2.50
+  };
+
+  const TON_MANIFEST_URL = window.location.origin + '/tonconnect-manifest.json';
+
+  // ========================================================================
+  // TELEGRAM
+  // ========================================================================
+  const tg = window.Telegram?.WebApp;
+  let tgUser = null;
+  let isTelegram = false;
+
+  if (tg && tg.initData) {
+    isTelegram = true;
+    tg.ready();
+    tg.expand();
+    try { tg.setHeaderColor('#0f0e1a'); } catch {}
+    try { tg.setBackgroundColor('#0f0e1a'); } catch {}
+    tgUser = tg.initDataUnsafe?.user || null;
+  }
+
+  const STORAGE_KEY = 'tictactoe_meta2_' + (tgUser?.id || 'guest');
+
+  // ========================================================================
+  // СКИНЫ (20 штук)
+  // ========================================================================
+  const SKINS = {
+    x_classic:  { name:'Классика',  type:'x', price:0,    story:false, svg:`<svg viewBox="0 0 100 100"><path d="M20 20 L80 80 M80 20 L20 80" stroke="currentColor" stroke-width="14" stroke-linecap="round" fill="none"/></svg>` },
+    x_rounded:  { name:'Мягкий',    type:'x', price:50,   story:false, svg:`<svg viewBox="0 0 100 100"><path d="M22 22 L78 78 M78 22 L22 78" stroke="currentColor" stroke-width="16" stroke-linecap="round" fill="none"/></svg>` },
+    x_neon:     { name:'Неон',      type:'x', price:100,  story:false, svg:`<svg viewBox="0 0 100 100"><path d="M20 20 L80 80 M80 20 L20 80" stroke="currentColor" stroke-width="10" stroke-linecap="round" fill="none"/><path d="M20 20 L80 80 M80 20 L20 80" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.8"/></svg>` },
+    x_cross:    { name:'Крест',     type:'x', price:150,  story:false, svg:`<svg viewBox="0 0 100 100"><path d="M50 10 L50 90 M10 50 L90 50" stroke="currentColor" stroke-width="16" stroke-linecap="round" fill="none"/></svg>` },
+    x_star:     { name:'Звезда',    type:'x', price:300,  story:false, svg:`<svg viewBox="0 0 100 100"><path d="M50 8 L61 38 L92 38 L67 57 L77 88 L50 69 L23 88 L33 57 L8 38 L39 38 Z" fill="currentColor"/></svg>` },
+    x_lightning:{ name:'Молния',    type:'x', price:400,  story:false, svg:`<svg viewBox="0 0 100 100"><path d="M55 8 L25 55 L45 55 L35 92 L75 42 L52 42 Z" fill="currentColor"/></svg>` },
+    x_diamond:  { name:'Алмаз',     type:'x', price:500,  story:false, svg:`<svg viewBox="0 0 100 100"><path d="M50 10 L85 50 L50 90 L15 50 Z" fill="currentColor" opacity="0.85"/><path d="M50 10 L85 50 L50 50 Z" fill="#fff" opacity="0.3"/></svg>` },
+    x_flame:    { name:'Пламя',     type:'x', price:700,  story:false, svg:`<svg viewBox="0 0 100 100"><path d="M50 8 C50 8 70 25 70 45 C70 60 60 70 60 80 C60 90 50 95 50 95 C50 95 40 90 40 80 C40 70 30 60 30 45 C30 25 50 8 50 8 Z" fill="currentColor" opacity="0.9"/></svg>` },
+    x_ghost:    { name:'Призрак',   type:'x', price:0,    story:true,  svg:`<svg viewBox="0 0 100 100"><path d="M30 20 L30 80 M70 20 L70 80" stroke="currentColor" stroke-width="14" stroke-linecap="round" fill="none" opacity="0.5"/><path d="M30 20 L70 80 M70 20 L30 80" stroke="currentColor" stroke-width="14" stroke-linecap="round" fill="none"/></svg>` },
+    x_royal:    { name:'Королевский', type:'x', price:0,  story:true,  svg:`<svg viewBox="0 0 100 100"><path d="M20 20 L80 80 M80 20 L20 80" stroke="currentColor" stroke-width="12" stroke-linecap="round" fill="none"/><circle cx="50" cy="50" r="8" fill="#ffd166"/><circle cx="20" cy="20" r="4" fill="#ffd166"/><circle cx="80" cy="80" r="4" fill="#ffd166"/><circle cx="80" cy="20" r="4" fill="#ffd166"/><circle cx="20" cy="80" r="4" fill="#ffd166"/></svg>` },
+
+    o_classic:  { name:'Классика',  type:'o', price:0,    story:false, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="32" stroke="currentColor" stroke-width="14" fill="none"/></svg>` },
+    o_bold:     { name:'Жирный',    type:'o', price:50,   story:false, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="34" stroke="currentColor" stroke-width="20" fill="none"/></svg>` },
+    o_neon:     { name:'Неон',      type:'o', price:100,  story:false, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="32" stroke="currentColor" stroke-width="10" fill="none"/><circle cx="50" cy="50" r="32" stroke="#fff" stroke-width="3" fill="none" opacity="0.8"/></svg>` },
+    o_ring:     { name:'Кольцо',    type:'o', price:150,  story:false, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" stroke="currentColor" stroke-width="8" fill="none"/><circle cx="50" cy="50" r="22" stroke="currentColor" stroke-width="4" fill="none" opacity="0.6"/></svg>` },
+    o_donut:    { name:'Пончик',    type:'o', price:200,  story:false, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="34" fill="currentColor"/><circle cx="50" cy="50" r="14" fill="#1f1e35"/></svg>` },
+    o_hex:      { name:'Гекс',      type:'o', price:300,  story:false, svg:`<svg viewBox="0 0 100 100"><path d="M50 8 L86 29 L86 71 L50 92 L14 71 L14 29 Z" fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round"/></svg>` },
+    o_portal:   { name:'Портал',    type:'o', price:500,  story:false, svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="34" fill="currentColor" opacity="0.7"/><circle cx="50" cy="50" r="24" fill="none" stroke="#fff" stroke-width="3" opacity="0.7"/><circle cx="50" cy="50" r="14" fill="none" stroke="#fff" stroke-width="3" opacity="0.5"/><circle cx="50" cy="50" r="6" fill="#fff" opacity="0.8"/></svg>` },
+    o_moon:     { name:'Луна',      type:'o', price:700,  story:false, svg:`<svg viewBox="0 0 100 100"><path d="M62 18 C40 18 22 36 22 58 C22 76 36 90 54 90 C40 84 32 70 32 56 C32 40 44 26 62 18 Z" fill="currentColor"/><circle cx="72" cy="30" r="3" fill="#fff" opacity="0.8"/></svg>` },
+    o_spiral:   { name:'Спираль',   type:'o', price:0,    story:true,  svg:`<svg viewBox="0 0 100 100"><path d="M50 20 A30 30 0 1 1 50 80 A20 20 0 1 1 50 40 A10 10 0 1 1 50 60" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"/></svg>` },
+    o_crown:    { name:'Корона',    type:'o', price:0,    story:true,  svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="30" fill="none" stroke="currentColor" stroke-width="6"/><path d="M32 30 L40 42 L50 28 L60 42 L68 30 L72 50 L28 50 Z" fill="#ffd166"/></svg>` }
+  };
+
+  const STAR_PACKS = [
+    { id:'s1', stars:1,  bonus:0 },
+    { id:'s2', stars:2,  bonus:0 },
+    { id:'s3', stars:5,  bonus:1 },
+    { id:'s4', stars:10, bonus:3 },
+    { id:'s5', stars:25, bonus:10 },
+    { id:'s6', stars:50, bonus:25 }
+  ];
+
+  const DAILY_REWARDS = [
+    { coins: 5,  icon:'🪙' },
+    { coins: 10, icon:'💰' },
+    { coins: 15, icon:'💎' },
+    { coins: 20, icon:'🎁' },
+    { coins: 30, icon:'🏆' },
+    { coins: 50, icon:'👑' },
+    { coins: 100, icon:'🌟' }
+  ];
+
+  const WIN_REWARD = 1;
+  const MAX_STRIKE_BONUS = 5;
+  const TURN_TIME = 15;
+  const MAX_UNDO_PER_GAME = 2;
+  const MAX_LEVEL = 100;
+
+  // ========================================================================
+  // СЮЖЕТ
+  // ========================================================================
+  const CHAPTERS = [
+    { id:'ch1',  title:'Глава 1. Начало',            desc:'Победи ИИ один раз, чтобы доказать, что ты достоин учиться.',         mission:{ type:'win_pve', count:1 },                                rewards:{ coins:20,   xp:50,   skin:null } },
+    { id:'ch2',  title:'Глава 2. Ученик',            desc:'Мастер заметил тебя. Выиграй 3 раза подряд.',                          mission:{ type:'winstrike', count:3 },                              rewards:{ coins:50,   xp:100,  skin:'x_ghost' } },
+    { id:'ch3',  title:'Глава 3. Испытание скорости', desc:'Матч до 3 побед на сложности «Средне».',                               mission:{ type:'win_match_difficulty', diff:'d3', matchLen:3 },     rewards:{ coins:80,   xp:150,  skin:null } },
+    { id:'ch4',  title:'Глава 4. Спираль судьбы',    desc:'Мастер дарит тебе древний символ. Победи 10 раз.',                     mission:{ type:'win_total_pve', count:10 },                         rewards:{ coins:100,  xp:200,  skin:'o_spiral' } },
+    { id:'ch5',  title:'Глава 5. Тень',              desc:'Победи Мастера хотя бы один раз.',                                     mission:{ type:'win_difficulty', diff:'d6', count:1 },              rewards:{ coins:150,  xp:300,  skin:null } },
+    { id:'ch6',  title:'Глава 6. Королевский путь',  desc:'Победи на поле 5×5.',                                                  mission:{ type:'win_size', size:5, count:1 },                       rewards:{ coins:200,  xp:400,  skin:'x_royal' } },
+    { id:'ch7',  title:'Глава 7. Дуэль мастеров',    desc:'Матч до 3 побед на «Непобедимо». Победи.',                             mission:{ type:'win_match_difficulty', diff:'d7', matchLen:3 },     rewards:{ coins:300,  xp:500,  skin:'o_crown' } },
+    { id:'ch8',  title:'Глава 8. Легенда',           desc:'Достигни 5 уровня.',                                                   mission:{ type:'reach_level', level:5 },                            rewards:{ coins:400,  xp:600,  skin:null } },
+    { id:'ch9',  title:'Глава 9. Коллекционер',      desc:'Собери 4 разных скина.',                                               mission:{ type:'own_skins', count:4 },                              rewards:{ coins:500,  xp:700,  skin:null } },
+    { id:'ch10', title:'Глава 10. Долг платежом',    desc:'Пройди 10 миссий.',                                                    mission:{ type:'complete_missions', count:10 },                     rewards:{ coins:700,  xp:1000, skin:null } },
+    { id:'ch11', title:'Глава 11. Абсолют',          desc:'Достигни 10 уровня.',                                                  mission:{ type:'reach_level', level:10 },                           rewards:{ coins:1000, xp:1500, skin:null } },
+    { id:'ch12', title:'Глава 12. Бесконечность',    desc:'Победи в 50 партиях.',                                                 mission:{ type:'win_total', count:50 },                             rewards:{ coins:2000, xp:3000, skin:null } }
+  ];
+
+  // ========================================================================
+  // ЕЖЕДНЕВНЫЕ МИССИИ (шаблоны, выбираются 3 случайных каждый день)
+  // ========================================================================
+  const DAILY_MISSION_TEMPLATES = [
+    { id:'dm_win1',     name:'Выиграй 1 партию',                type:'win_round',   count:1,   reward:{ coins:10, xp:15 } },
+    { id:'dm_win3',     name:'Выиграй 3 партии',                type:'win_round',   count:3,   reward:{ coins:30, xp:45 } },
+    { id:'dm_win5',     name:'Выиграй 5 партий',                type:'win_round',   count:5,   reward:{ coins:60, xp:90 } },
+    { id:'dm_match1',   name:'Победи в матче',                  type:'win_match',   count:1,   reward:{ coins:25, xp:40 } },
+    { id:'dm_match2',   name:'Победи в 2 матчах',               type:'win_match',   count:2,   reward:{ coins:60, xp:100 } },
+    { id:'dm_size4',    name:'Победи на поле 4×4',              type:'win_size_4',  count:1,   reward:{ coins:20, xp:30 } },
+    { id:'dm_size5',    name:'Победи на поле 5×5',              type:'win_size_5',  count:1,   reward:{ coins:30, xp:50 } },
+    { id:'dm_hard',     name:'Победи на «Непобедимо»',          type:'win_d7',      count:1,   reward:{ coins:50, xp:80 } },
+    { id:'dm_strike3',  name:'Собери WinStrike 3',              type:'winstrike',   count:3,   reward:{ coins:40, xp:70 } },
+    { id:'dm_strike5',  name:'Собери WinStrike 5',              type:'winstrike',   count:5,   reward:{ coins:80, xp:150 } },
+    { id:'dm_play5',    name:'Сыграй 5 партий',                 type:'play_round',  count:5,   reward:{ coins:15, xp:25 } },
+    { id:'dm_play10',   name:'Сыграй 10 партий',                type:'play_round',  count:10,  reward:{ coins:35, xp:60 } },
+    { id:'dm_undo0',    name:'Выиграй без отмен',               type:'win_no_undo', count:1,   reward:{ coins:20, xp:40 } },
+    { id:'dm_ai_mid',   name:'Победи на «Сложно»',              type:'win_d4',      count:1,   reward:{ coins:25, xp:40 } },
+    { id:'dm_draw1',    name:'Сыграй вничью',                   type:'draw_round',  count:1,   reward:{ coins:10, xp:20 } }
+  ];
+
+  // ========================================================================
+  // РАМКИ (за каждые 10 уровней)
+  // ========================================================================
+  const FRAMES = [
+    { id:'f0',   name:'Старт',       level:1,   svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#666" stroke-width="2"/></svg>` },
+    { id:'f10',  name:'Бронза',      level:10,  svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#cd7f32" stroke-width="4"/><circle cx="50" cy="50" r="40" fill="none" stroke="#cd7f32" stroke-width="1" opacity="0.5"/></svg>` },
+    { id:'f20',  name:'Серебро',     level:20,  svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#c0c0c0" stroke-width="4"/><circle cx="50" cy="50" r="40" fill="none" stroke="#fff" stroke-width="1" opacity="0.4"/></svg>` },
+    { id:'f30',  name:'Золото',      level:30,  svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#ffd166" stroke-width="5"/><circle cx="50" cy="50" r="38" fill="none" stroke="#ffd166" stroke-width="1.5" opacity="0.6"/></svg>` },
+    { id:'f40',  name:'Платина',     level:40,  svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#7bffb0" stroke-width="5"/><circle cx="50" cy="50" r="38" fill="none" stroke="#7bffb0" stroke-width="1.5" opacity="0.6"/><path d="M50 8 L54 46 L92 50 L54 54 L50 92 L46 54 L8 50 L46 46 Z" fill="#7bffb0" opacity="0.2"/></svg>` },
+    { id:'f50',  name:'Сапфир',      level:50,  svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#4cc9f0" stroke-width="5"/><circle cx="50" cy="50" r="38" fill="none" stroke="#4cc9f0" stroke-width="2"/><path d="M50 8 L54 46 L92 50 L54 54 L50 92 L46 54 L8 50 L46 46 Z" fill="#4cc9f0" opacity="0.3"/></svg>` },
+    { id:'f60',  name:'Аметист',     level:60,  svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#a78bfa" stroke-width="5"/><circle cx="50" cy="50" r="38" fill="none" stroke="#a78bfa" stroke-width="2" opacity="0.7"/><circle cx="50" cy="50" r="32" fill="none" stroke="#a78bfa" stroke-width="1" opacity="0.4"/></svg>` },
+    { id:'f70',  name:'Рубин',       level:70,  svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#f72585" stroke-width="6"/><circle cx="50" cy="50" r="38" fill="none" stroke="#f72585" stroke-width="2"/><path d="M50 8 L54 46 L92 50 L54 54 L50 92 L46 54 L8 50 L46 46 Z" fill="#f72585" opacity="0.35"/></svg>` },
+    { id:'f80',  name:'Изумруд',     level:80,  svg:`<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#00d68f" stroke-width="6"/><circle cx="50" cy="50" r="38" fill="none" stroke="#00d68f" stroke-width="2"/><circle cx="50" cy="50" r="30" fill="none" stroke="#00d68f" stroke-width="1" opacity="0.5"/></svg>` },
+    { id:'f90',  name:'Легенда',     level:90,  svg:`<svg viewBox="0 0 100 100"><defs><linearGradient id="l90" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd166"/><stop offset="0.5" stop-color="#f72585"/><stop offset="1" stop-color="#4cc9f0"/></linearGradient></defs><circle cx="50" cy="50" r="46" fill="none" stroke="url(#l90)" stroke-width="6"/><circle cx="50" cy="50" r="38" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.5"/><path d="M50 6 L55 44 L94 50 L55 56 L50 94 L45 56 L6 50 L45 44 Z" fill="#fff" opacity="0.2"/></svg>` },
+    { id:'f100', name:'Мифическая',  level:100, svg:`<svg viewBox="0 0 100 100"><defs><radialGradient id="l100"><stop offset="0" stop-color="#fff"/><stop offset="0.4" stop-color="#a78bfa"/><stop offset="0.8" stop-color="#4cc9f0"/><stop offset="1" stop-color="#f72585"/></radialGradient></defs><circle cx="50" cy="50" r="46" fill="none" stroke="url(#l100)" stroke-width="7"/><circle cx="50" cy="50" r="38" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.6"/><circle cx="50" cy="50" r="32" fill="none" stroke="#fff" stroke-width="1" opacity="0.4"/><path d="M50 4 L56 44 L96 50 L56 56 L50 96 L44 56 L4 50 L44 44 Z" fill="#fff" opacity="0.35"/></svg>` }
+  ];
+
+  // ========================================================================
+  // DOM
+  // ========================================================================
+  const $ = id => document.getElementById(id);
+
+  const boardEl = $('board'), statusEl = $('status');
+  const restartBtn = $('restart'), resetAllBtn = $('resetAll');
+  const undoBtn = $('undoBtn'), undoBadge = $('undoBadge');
+  const sizeSelect = $('sizeSelect'), modeSelect = $('modeSelect');
+  const diffSelect = $('diffSelect'), matchSelect = $('matchSelect');
+  const scoreXEl = $('scoreX'), scoreOEl = $('scoreO'), scoreDEl = $('scoreD');
+  const matchXEl = $('matchX'), matchOEl = $('matchO'), matchInfoEl = $('matchInfo');
+  const historyListEl = $('historyList'), clearHistoryBtn = $('clearHistory');
+  const coinsCountEl = $('coinsCount'), starsCountEl = $('starsCount');
+  const shopBtn = $('shopBtn'), buyStarsBtn = $('buyStarsBtn'), dailyBtn = $('dailyBtn');
+  const storyBtn = $('storyBtn');
+  const dailyMissionsBtn = $('dailyMissionsBtn');
+  const shopOverlay = $('shopOverlay'), closeShopBtn = $('closeShop');
+  const skinsXEl = $('skinsX'), skinsOEl = $('skinsO'), starsGridEl = $('starsGrid');
+  const winStrikeEl = $('winStrike'), loseStrikeEl = $('loseStrike');
+  const winStrikeVal = $('winStrikeVal'), loseStrikeVal = $('loseStrikeVal');
+  const turnTimerEl = $('turnTimer'), timerBar = $('timerBar'), timerText = $('timerText');
+  const adOverlay = $('adOverlay'), adBar = $('adBar'), adTimer = $('adTimer'), adCancel = $('adCancel');
+  const undoOverlay = $('undoOverlay'), undoText = $('undoText');
+  const undoConfirm = $('undoConfirm'), undoCancel = $('undoCancel');
+  const skinBuyOverlay = $('skinBuyOverlay'), skinBuyTitle = $('skinBuyTitle');
+  const skinBuyText = $('skinBuyText'), skinBuyConfirm = $('skinBuyConfirm'), skinBuyCancel = $('skinBuyCancel');
+  const dailyOverlay = $('dailyOverlay'), dailyRewardsEl = $('dailyRewards');
+  const dailyClaim = $('dailyClaim'), dailyClose = $('dailyClose');
+  const toastEl = $('toast');
+  const levelupToast = $('levelupToast');
+
+  const tonPayOverlay = $('tonPayOverlay');
+  const tonPayAmount = $('tonPayAmount');
+  const tonPayStars = $('tonPayStars');
+  const tonPayWallet = $('tonPayWallet');
+  const tonPayStatus = $('tonPayStatus');
+  const tonPayConfirm = $('tonPayConfirm');
+  const tonPayCancel = $('tonPayCancel');
+
+  const profileBar = $('profileBar');
+  const profileAvatarImg = $('profileAvatarImg');
+  const profileFrame = $('profileFrame');
+  const profileName = $('profileName');
+  const profileLevel = $('profileLevel');
+  const profileXP = $('profileXP');
+  const profileXPBar = $('profileXPBar');
+  const profileOverlay = $('profileOverlay');
+  const closeProfile = $('closeProfile');
+  const profileBigAvatarImg = $('profileBigAvatarImg');
+  const profileBigFrame = $('profileBigFrame');
+  const profileBigName = $('profileBigName');
+  const profileBigLevel = $('profileBigLevel');
+  const profileXPText = $('profileXPText');
+  const profileXPBar2 = $('profileXPBar2');
+  const profileStatWins = $('profileStatWins');
+  const profileStatMatches = $('profileStatMatches');
+  const profileStatMissions = $('profileStatMissions');
+  const framesGrid = $('framesGrid');
+
+  const storyOverlay = $('storyOverlay');
+  const closeStory = $('closeStory');
+  const chaptersList = $('chaptersList');
+  const missionsList = $('missionsList');
+
+  const dailyMissionsOverlay = $('dailyMissionsOverlay');
+  const closeDailyMissions = $('closeDailyMissions');
+  const dailyMissionsList = $('dailyMissionsList');
+  const dailyMissionsTimer = $('dailyMissionsTimer');
+
+  // ========================================================================
+  // СОСТОЯНИЕ
+  // ========================================================================
+  let SIZE = 3, WIN_LEN = 3;
+  let state = [], cells = [];
+  let currentPlayer = 'X';
+  let gameOver = false, aiThinking = false;
+  let WIN_LINES = [];
+  let score = { X: 0, O: 0, D: 0 };
+  let history = [];
+  let moveHistory = [];
+  let undosLeft = MAX_UNDO_PER_GAME;
+  let coins = 0, stars = 0;
+  let ownedSkins = new Set(['x_classic', 'o_classic']);
+  let selectedSkinX = 'x_classic';
+  let selectedSkinO = 'o_classic';
+  let winStrike = 0, loseStrike = 0;
+  let dailyLastClaim = 0, dailyStreak = 0;
+  let matchLen = 2;
+  let matchWins = { X: 0, O: 0 };
+  let matchFinished = false;
+  let turnTimer = null, turnTimeLeft = TURN_TIME;
+  let pendingTONPack = null;
+  const TURN_TICK_MS = 100;
+
+  let xp = 0;
+  let level = 1;
+  let selectedFrame = 'f0';
+  let stats = { wins: 0, matches: 0, missions: 0 };
+  let chapters = {};
+  let missionsState = {};
+  let usedUndoInMatch = false;
+
+  // Ежедневные миссии
+  let dailyMissions = { date: '', list: [] };
+  let dailyMissionProgress = {};
+
+  // Инициализация глав
+  CHAPTERS.forEach(ch => {
+    chapters[ch.id] = chapters[ch.id] || { completed: false, progress: 0 };
+    missionsState[ch.id] = missionsState[ch.id] || { count: 0, done: false };
+  });
+
+  // ========================================================================
+  // ЗВУКИ
+  // ========================================================================
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) audioCtx = new AudioCtx();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function playTone(freq, duration = 0.12, type = 'sine', gainVal = 0.15) {
+    try {
+      ensureAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    } catch {}
+  }
+  const Sound = {
+    clickX: () => playTone(660, 0.10, 'triangle'),
+    clickO: () => playTone(440, 0.10, 'triangle'),
+    win: () => { playTone(523, 0.15); setTimeout(()=>playTone(659,0.15),120); setTimeout(()=>playTone(784,0.25),240); },
+    lose: () => { playTone(330, 0.2, 'sawtooth', 0.12); setTimeout(()=>playTone(220,0.3,'sawtooth',0.12),150); },
+    draw: () => { playTone(330, 0.18, 'sawtooth', 0.1); setTimeout(()=>playTone(262,0.25,'sawtooth',0.1),150); },
+    ai: () => playTone(300, 0.08, 'square', 0.08),
+    undo: () => { playTone(520, 0.1); setTimeout(()=>playTone(390,0.15),90); },
+    coin: () => { playTone(880, 0.08, 'square', 0.1); setTimeout(()=>playTone(1320,0.1,'square',0.1),70); },
+    buy: () => { playTone(660, 0.1); setTimeout(()=>playTone(880,0.1),80); setTimeout(()=>playTone(1100,0.15),160); },
+    tick: () => playTone(1200, 0.04, 'square', 0.05),
+    timeout: () => playTone(200, 0.3, 'sawtooth', 0.15),
+    levelup: () => { playTone(523,0.12); setTimeout(()=>playTone(659,0.12),100); setTimeout(()=>playTone(784,0.12),200); setTimeout(()=>playTone(1047,0.3),300); },
+    mission: () => { playTone(880,0.1); setTimeout(()=>playTone(1174,0.15),80); setTimeout(()=>playTone(1568,0.2),160); }
+  };
+
+  // ========================================================================
+  // УТИЛИТЫ
+  // ========================================================================
+  function showToast(text, type = '') {
+    toastEl.textContent = text;
+    toastEl.className = 'toast ' + type;
+    toastEl.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toastEl.classList.remove('show'), 2600);
+  }
+
+  function showLevelUp(newLevel) {
+    const frameUnlocked = FRAMES.find(f => f.level === newLevel);
+    const nextFrame = FRAMES.find(f => level < f.level);
+    const sub = frameUnlocked
+      ? `🖼️ Открыта рамка «${frameUnlocked.name}»!`
+      : (nextFrame ? `Следующая рамка: «${nextFrame.name}» на ур. ${nextFrame.level}` : 'Максимум!');
+    levelupToast.innerHTML = `🎉 Уровень ${newLevel}!<span class="sub">${sub}</span>`;
+    levelupToast.classList.add('show');
+    setTimeout(() => levelupToast.classList.remove('show'), 3000);
+  }
+
+  function loadState() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
+  }
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        size: sizeSelect.value, mode: modeSelect.value, diff: diffSelect.value,
+        matchLen: matchSelect.value, score, history, coins, stars,
+        ownedSkins: [...ownedSkins], selectedSkinX, selectedSkinO,
+        winStrike, loseStrike, dailyLastClaim, dailyStreak,
+        xp, level, selectedFrame, stats, chapters, missionsState,
+        dailyMissions, dailyMissionProgress
+      }));
+    } catch {}
+  }
+
+  // ========================================================================
+  // ОПЫТ И УРОВНИ
+  // ========================================================================
+  function xpForLevel(lvl) {
+    return Math.floor(50 + Math.pow(lvl, 1.5) * 15);
+  }
+
+  function addXP(amount) {
+    if (amount <= 0) return;
+    if (level >= MAX_LEVEL) return;
+    xp += amount;
+    let leveledUp = false;
+    let prevLevel = level;
+    while (level < MAX_LEVEL && xp >= xpForLevel(level)) {
+      xp -= xpForLevel(level);
+      level++;
+      leveledUp = true;
+    }
+    if (level >= MAX_LEVEL) xp = 0;
+    if (leveledUp) {
+      Sound.levelup();
+      showLevelUp(level);
+      // Уведомления о новых рамках
+      FRAMES.filter(f => f.level > prevLevel && f.level <= level).forEach(f => {
+        setTimeout(() => showToast(`🖼️ Новая рамка: ${f.name}!`, 'success'), 1800);
+      });
+    }
+    updateProfileUI();
+    saveState();
+  }
+
+  function calculateMatchXP(forScore, againstScore) {
+    const base = 30;
+    const diff = Math.max(0, forScore - againstScore);
+    return base + diff * 20;
+  }
+
+  // ========================================================================
+  // ПРОФИЛЬ
+  // ========================================================================
+  function getFrameById(id) { return FRAMES.find(f => f.id === id) || FRAMES[0]; }
+
+  function renderProfileBar() {
+    if (tgUser?.photo_url) {
+      profileAvatarImg.innerHTML = `<img src="${tgUser.photo_url}" alt="">`;
+    } else {
+      profileAvatarImg.innerHTML = `<div class="avatar-placeholder">👤</div>`;
+    }
+    const frame = getFrameById(selectedFrame);
+    profileFrame.innerHTML = frame.svg;
+    profileName.textContent = tgUser?.first_name || 'Игрок';
+    profileLevel.textContent = 'Ур. ' + level;
+    if (level >= MAX_LEVEL) {
+      profileXP.textContent = 'МАКС';
+      profileXPBar.style.width = '100%';
+    } else {
+      const need = xpForLevel(level);
+      profileXP.textContent = `${xp} / ${need} XP`;
+      profileXPBar.style.width = Math.min(100, (xp / need) * 100) + '%';
+    }
+  }
+
+  function renderProfileModal() {
+    if (tgUser?.photo_url) {
+      profileBigAvatarImg.innerHTML = `<img src="${tgUser.photo_url}" alt="">`;
+    } else {
+      profileBigAvatarImg.innerHTML = `<div class="avatar-placeholder">👤</div>`;
+    }
+    const frame = getFrameById(selectedFrame);
+    profileBigFrame.innerHTML = frame.svg;
+    profileBigName.textContent = tgUser?.first_name || 'Игрок';
+    profileBigLevel.textContent = `Уровень ${level} / ${MAX_LEVEL}`;
+
+    if (level >= MAX_LEVEL) {
+      profileXPText.textContent = 'МАКСИМУМ';
+      profileXPBar2.style.width = '100%';
+    } else {
+      const need = xpForLevel(level);
+      profileXPText.textContent = `${xp} / ${need} XP`;
+      profileXPBar2.style.width = Math.min(100, (xp / need) * 100) + '%';
+    }
+
+    profileStatWins.textContent = stats.wins;
+    profileStatMatches.textContent = stats.matches;
+    profileStatMissions.textContent = stats.missions;
+
+    framesGrid.innerHTML = '';
+    FRAMES.forEach(f => {
+      const unlocked = level >= f.level;
+      const card = document.createElement('div');
+      card.className = 'frame-card';
+      if (selectedFrame === f.id) card.classList.add('selected');
+      if (!unlocked) card.classList.add('locked');
+
+      const badge = !unlocked
+        ? `<div class="frame-level">Ур. ${f.level}</div>`
+        : (f.level > 1 ? `<div class="frame-level unlocked">✓</div>` : '');
+
+      card.innerHTML = `
+        <div class="frame-preview">
+          <div class="circle"></div>
+          ${f.svg}
+        </div>
+        <div class="frame-name">${f.name}</div>
+        ${badge}
+      `;
+
+      if (unlocked) {
+        card.addEventListener('click', () => {
+          selectedFrame = f.id;
+          renderProfileBar();
+          renderProfileModal();
+          saveState();
+          Sound.buy();
+        });
+      }
+      framesGrid.appendChild(card);
+    });
+
+    const nextFrame = FRAMES.find(f => level < f.level);
+    if (nextFrame) {
+      const info = document.createElement('div');
+      info.style.cssText = `
+        grid-column: 1 / -1; text-align: center; font-size: 11px;
+        color: #888; padding: 8px; background: rgba(255,255,255,0.03);
+        border-radius: 8px; margin-top: 6px;
+      `;
+      info.textContent = `Следующая рамка: «${nextFrame.name}» на ур. ${nextFrame.level}`;
+      framesGrid.appendChild(info);
+    }
+  }
+
+  function updateProfileUI() {
+    renderProfileBar();
+    if (profileOverlay.classList.contains('show')) renderProfileModal();
+  }
+
+  profileBar.addEventListener('click', () => {
+    renderProfileModal();
+    profileOverlay.classList.add('show');
+  });
+  closeProfile.addEventListener('click', () => profileOverlay.classList.remove('show'));
+  profileOverlay.addEventListener('click', e => {
+    if (e.target === profileOverlay) profileOverlay.classList.remove('show');
+  });
+
+  // ========================================================================
+  // ЕЖЕДНЕВНЫЕ МИССИИ
+  // ========================================================================
+  function getTodayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+  }
+
+  function generateDailyMissions() {
+    // Выбираем 3 случайных миссии из шаблонов
+    const shuffled = [...DAILY_MISSION_TEMPLATES].sort(() => Math.random() - 0.5);
+    const picked = shuffled.slice(0, 3);
+    const date = getTodayKey();
+    dailyMissions = {
+      date,
+      list: picked.map(m => ({ ...m, claimed: false }))
+    };
+    dailyMissionProgress = {};
+    picked.forEach(m => { dailyMissionProgress[m.id] = 0; });
+  }
+
+  function checkDailyReset() {
+    const today = getTodayKey();
+    if (dailyMissions.date !== today) {
+      generateDailyMissions();
+      saveState();
+    }
+  }
+
+  function getTimeUntilReset() {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const diff = tomorrow - now;
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    return `${h}ч ${m}м`;
+  }
+
+  function renderDailyMissions() {
+    dailyMissionsList.innerHTML = '';
+    dailyMissionsTimer.textContent = `Обновление через: ${getTimeUntilReset()}`;
+
+    if (!dailyMissions.list || dailyMissions.list.length === 0) {
+      generateDailyMissions();
+    }
+
+    dailyMissions.list.forEach(m => {
+      const progress = dailyMissionProgress[m.id] || 0;
+      const done = progress >= m.count;
+      const card = document.createElement('div');
+      card.className = 'daily-mission';
+      if (done && !m.claimed) card.classList.add('completed');
+      else if (done && m.claimed) card.classList.add('completed');
+      else card.classList.add('active');
+
+      const rewardText = `+${m.reward.coins}🪙 +${m.reward.xp}XP`;
+
+      let btn = '';
+      if (done && !m.claimed) {
+        btn = `<button class="claim-btn" data-id="${m.id}">Забрать</button>`;
+      } else if (done && m.claimed) {
+        btn = `<span class="mission-reward">✓ Получено</span>`;
+      } else {
+        btn = `<span class="mission-reward">${rewardText}</span>`;
+      }
+
+      card.innerHTML = `
+        <div class="mission-body">
+          <div class="mission-name">${m.name}</div>
+          <div class="mission-progress">${Math.min(progress, m.count)} / ${m.count}</div>
+        </div>
+        ${btn}
+      `;
+      dailyMissionsList.appendChild(card);
+    });
+
+    dailyMissionsList.querySelectorAll('.claim-btn').forEach(btn => {
+      btn.addEventListener('click', () => claimDailyMission(btn.dataset.id));
+    });
+  }
+
+  function claimDailyMission(id) {
+    const m = dailyMissions.list.find(x => x.id === id);
+    if (!m || m.claimed) return;
+    if ((dailyMissionProgress[m.id] || 0) < m.count) return;
+
+    m.claimed = true;
+    addCoins(m.reward.coins);
+    addXP(m.reward.xp);
+    Sound.mission();
+    showToast(`🎯 +${m.reward.coins}🪙 +${m.reward.xp}XP`, 'success');
+    renderDailyMissions();
+    saveState();
+  }
+
+  function updateDailyMissionProgress(type, data = {}) {
+    if (!dailyMissions.list) return;
+    let changed = false;
+
+    dailyMissions.list.forEach(m => {
+      if (m.claimed) return;
+      let cur = dailyMissionProgress[m.id] || 0;
+
+      // Основные типы
+      if (m.type === 'win_round' && type === 'win_round') {
+        cur++; changed = true;
+      }
+      if (m.type === 'win_match' && type === 'win_match') {
+        cur++; changed = true;
+      }
+      if (m.type === 'play_round' && type === 'play_round') {
+        cur++; changed = true;
+      }
+      if (m.type === 'draw_round' && type === 'draw_round') {
+        cur++; changed = true;
+      }
+      if (m.type === 'winstrike' && type === 'winstrike') {
+        cur = Math.max(cur, data.streak || 0); changed = true;
+      }
+      if (m.type === 'win_size_4' && type === 'win_round' && data.size === 4) {
+        cur++; changed = true;
+      }
+      if (m.type === 'win_size_5' && type === 'win_round' && data.size === 5) {
+        cur++; changed = true;
+      }
+      if (m.type === 'win_d7' && type === 'win_round' && data.diff === 'd7') {
+        cur++; changed = true;
+      }
+      if (m.type === 'win_d4' && type === 'win_round' && data.diff === 'd4') {
+        cur++; changed = true;
+      }
+      if (m.type === 'win_no_undo' && type === 'win_round' && !data.usedUndo) {
+        cur++; changed = true;
+      }
+
+      dailyMissionProgress[m.id] = cur;
+    });
+
+    if (changed) {
+      renderDailyMissions();
+      saveState();
+    }
+  }
+
+  dailyMissionsBtn.addEventListener('click', () => {
+    checkDailyReset();
+    renderDailyMissions();
+    dailyMissionsOverlay.classList.add('show');
+  });
+  closeDailyMissions.addEventListener('click', () => dailyMissionsOverlay.classList.remove('show'));
+  dailyMissionsOverlay.addEventListener('click', e => {
+    if (e.target === dailyMissionsOverlay) dailyMissionsOverlay.classList.remove('show');
+  });
+
+  // ========================================================================
+  // СЮЖЕТ И МИССИИ
+  // ========================================================================
+  function renderChapters() {
+    chaptersList.innerHTML = '';
+    CHAPTERS.forEach((ch, idx) => {
+      const chState = chapters[ch.id];
+      const isUnlocked = idx === 0 || chapters[CHAPTERS[idx-1].id].completed;
+      const div = document.createElement('div');
+      div.className = 'chapter';
+      if (chState.completed) div.classList.add('completed');
+      else if (!isUnlocked) div.classList.add('locked');
+
+      const rewardParts = [];
+      if (ch.rewards.coins) rewardParts.push(`<span>+${ch.rewards.coins}🪙</span>`);
+      if (ch.rewards.xp) rewardParts.push(`<span>+${ch.rewards.xp} XP</span>`);
+      if (ch.rewards.skin) rewardParts.push(`<span>🎨 ${SKINS[ch.rewards.skin]?.name || ''}</span>`);
+
+      div.innerHTML = `
+        <div class="chapter-title">${chState.completed ? '✅ ' : isUnlocked ? '' : '🔒 '}${ch.title}</div>
+        <div class="chapter-desc">${ch.desc}</div>
+        <div class="chapter-reward">${chState.completed ? '<span class="done">Пройдено ✓</span>' : rewardParts.join('')}</div>
+      `;
+      chaptersList.appendChild(div);
+    });
+  }
+
+  function renderMissions() {
+    missionsList.innerHTML = '';
+    CHAPTERS.forEach((ch, idx) => {
+      const chState = chapters[ch.id];
+      const isUnlocked = idx === 0 || chapters[CHAPTERS[idx-1].id].completed;
+      if (!isUnlocked) return;
+
+      const mission = missionsState[ch.id];
+      const total = ch.mission.count || 1;
+      const cur = Math.min(mission.count, total);
+
+      const div = document.createElement('div');
+      div.className = 'daily-mission'; // используем те же стили
+      if (mission.done) div.classList.add('completed');
+      else div.classList.add('active');
+
+      div.innerHTML = `
+        <div class="mission-body">
+          <div class="mission-name">${ch.title.replace(/Глава \d+\. /, '')}</div>
+          <div class="mission-progress">${cur} / ${total}${mission.done ? ' ✓' : ''}</div>
+        </div>
+        <div class="mission-reward">${mission.done ? '✅' : '+' + (ch.rewards.coins || 0) + '🪙'}</div>
+      `;
+      missionsList.appendChild(div);
+    });
+  }
+
+  function checkMissionProgress() {
+    let anyCompleted = false;
+    CHAPTERS.forEach((ch, idx) => {
+      const chState = chapters[ch.id];
+      if (chState.completed) return;
+      const isUnlocked = idx === 0 || chapters[CHAPTERS[idx-1].id].completed;
+      if (!isUnlocked) return;
+
+      const mission = missionsState[ch.id];
+      const total = ch.mission.count || 1;
+      if (mission.count >= total && !mission.done) {
+        mission.done = true;
+        chState.completed = true;
+        anyCompleted = true;
+
+        const r = ch.rewards;
+        if (r.coins) addCoins(r.coins);
+        if (r.xp) addXP(r.xp);
+        if (r.skin) {
+          ownedSkins.add(r.skin);
+          if (SKINS[r.skin].type === 'x' && !ownedSkins.has(selectedSkinX)) selectedSkinX = r.skin;
+          if (SKINS[r.skin].type === 'o' && !ownedSkins.has(selectedSkinO)) selectedSkinO = r.skin;
+          showToast(`🎨 Открыт скин: ${SKINS[r.skin].name}!`, 'success');
+        }
+        stats.missions++;
+        Sound.mission();
+        showToast(`📖 Глава пройдена: ${ch.title}`, 'success');
+      }
+    });
+    if (anyCompleted) {
+      renderChapters();
+      renderMissions();
+      renderSkins();
+      updateProfileUI();
+      saveState();
+    }
+  }
+
+  function trackEvent(type, data = {}) {
+    let changed = false;
+    CHAPTERS.forEach((ch, idx) => {
+      const chState = chapters[ch.id];
+      if (chState.completed) return;
+      const isUnlocked = idx === 0 || chapters[CHAPTERS[idx-1].id].completed;
+      if (!isUnlocked) return;
+
+      const mission = missionsState[ch.id];
+      const cfg = ch.mission;
+
+      if (cfg.type === type) {
+        if (cfg.diff && data.diff !== cfg.diff) return;
+        if (cfg.size && data.size !== cfg.size) return;
+        if (cfg.matchLen && data.matchLen !== cfg.matchLen) return;
+        if (cfg.level && data.level !== cfg.level) return;
+        mission.count = Math.max(mission.count, data.count || 1);
+        changed = true;
+      }
+
+      if (type === 'win_round' && cfg.type === 'win_total') { mission.count++; changed = true; }
+      if (type === 'win_round' && cfg.type === 'win_total_pve') { mission.count++; changed = true; }
+      if (type === 'win_round' && cfg.type === 'win_pve') { mission.count++; changed = true; }
+      if (type === 'winstrike' && cfg.type === 'winstrike') {
+        mission.count = Math.max(mission.count, data.streak || 0); changed = true;
+      }
+      if (type === 'own_skins' && cfg.type === 'own_skins') { mission.count = ownedSkins.size; changed = true; }
+      if (type === 'reach_level' && cfg.type === 'reach_level' && level >= cfg.level) { mission.count = cfg.level; changed = true; }
+      if (type === 'complete_missions' && cfg.type === 'complete_missions') { mission.count = stats.missions; changed = true; }
+      if (type === 'win_match_difficulty' && cfg.type === 'win_match_difficulty') {
+        if (data.diff === cfg.diff && data.matchLen === cfg.matchLen && data.matchWon) { mission.count = 1; changed = true; }
+      }
+      if (type === 'win_difficulty' && cfg.type === 'win_difficulty') {
+        if (data.diff === cfg.diff) { mission.count++; changed = true; }
+      }
+      if (type === 'win_size' && cfg.type === 'win_size') {
+        if (data.size === cfg.size) { mission.count++; changed = true; }
+      }
+    });
+
+    if (changed) { checkMissionProgress(); saveState(); }
+  }
+
+  storyBtn.addEventListener('click', () => {
+    renderChapters();
+    renderMissions();
+    storyOverlay.classList.add('show');
+  });
+  closeStory.addEventListener('click', () => storyOverlay.classList.remove('show'));
+  storyOverlay.addEventListener('click', e => {
+    if (e.target === storyOverlay) storyOverlay.classList.remove('show');
+  });
+  document.querySelectorAll('.story-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.story-tab').forEach(t => t.classList.toggle('active', t === tab));
+      document.querySelectorAll('.story-panel').forEach(p => {
+        const id = 'storyPanel' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1);
+        p.classList.toggle('active', p.id === id);
+      });
+    });
+  });
+
+  // ========================================================================
+  // TON CONNECT
+  // ========================================================================
+  let tonConnectUI = null;
+  function initTonConnect() {
+    if (typeof TON_CONNECT_UI === 'undefined') return;
+    try {
+      tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+        manifestUrl: TON_MANIFEST_URL,
+        buttonRootId: 'ton-connect-btn'
+      });
+    } catch (e) { console.warn(e); }
+  }
+
+  // ========================================================================
+  // ЛИНИИ
+  // ========================================================================
+  function buildWinLines(size, winLen) {
+    const lines = [];
+    for (let r = 0; r < size; r++)
+      for (let c = 0; c <= size - winLen; c++) {
+        const line = [];
+        for (let k = 0; k < winLen; k++) line.push(r * size + c + k);
+        lines.push(line);
+      }
+    for (let c = 0; c < size; c++)
+      for (let r = 0; r <= size - winLen; r++) {
+        const line = [];
+        for (let k = 0; k < winLen; k++) line.push((r + k) * size + c);
+        lines.push(line);
+      }
+    for (let r = 0; r <= size - winLen; r++)
+      for (let c = 0; c <= size - winLen; c++) {
+        const line = [];
+        for (let k = 0; k < winLen; k++) line.push((r + k) * size + c + k);
+        lines.push(line);
+      }
+    for (let r = 0; r <= size - winLen; r++)
+      for (let c = winLen - 1; c < size; c++) {
+        const line = [];
+        for (let k = 0; k < winLen; k++) line.push((r + k) * size + c - k);
+        lines.push(line);
+      }
+    return lines;
+  }
+
+  // ========================================================================
+  // ПОЛЕ
+  // ========================================================================
+  function initBoard() {
+    SIZE = Number(sizeSelect.value);
+    WIN_LEN = SIZE === 3 ? 3 : (SIZE === 4 ? 4 : 4);
+    matchLen = Number(matchSelect.value);
+    state = Array(SIZE * SIZE).fill('');
+    cells = [];
+    gameOver = false;
+    aiThinking = false;
+    currentPlayer = 'X';
+    moveHistory = [];
+    undosLeft = MAX_UNDO_PER_GAME;
+    usedUndoInMatch = false;
+
+    WIN_LINES = buildWinLines(SIZE, WIN_LEN);
+
+    boardEl.innerHTML = '';
+    boardEl.style.gridTemplateColumns = `repeat(${SIZE}, ${cellSize()}px)`;
+    boardEl.style.gridTemplateRows    = `repeat(${SIZE}, ${cellSize()}px)`;
+
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'cell';
+      btn.dataset.index = i;
+      btn.style.fontSize = fontSizeFor(SIZE);
+      btn.addEventListener('click', handleClick);
+      boardEl.appendChild(btn);
+      cells.push(btn);
+    }
+
+    statusEl.textContent = 'Ход игрока: X';
+    statusEl.style.color = 'var(--accent)';
+    updateUndoUI();
+    updateMatchUI();
+    startTurnTimer();
+  }
+
+  function resetMatch() {
+    matchWins = { X: 0, O: 0 };
+    matchFinished = false;
+    updateMatchUI();
+  }
+
+  function cellSize() {
+    if (SIZE === 3) return 95;
+    if (SIZE === 4) return 74;
+    return 58;
+  }
+  function fontSizeFor(size) {
+    if (size === 3) return '48px';
+    if (size === 4) return '36px';
+    return '26px';
+  }
+  function updateMatchUI() {
+    matchXEl.textContent = matchWins.X;
+    matchOEl.textContent = matchWins.O;
+    matchInfoEl.textContent = `матч до ${matchLen} ${matchLen === 1 ? 'победы' : 'побед'}`;
+  }
+
+  // ========================================================================
+  // ТАЙМЕР
+  // ========================================================================
+  function startTurnTimer() {
+    stopTurnTimer();
+    if (gameOver || matchFinished) return;
+    turnTimeLeft = TURN_TIME;
+    updateTimerUI();
+    turnTimer = setInterval(() => {
+      turnTimeLeft -= TURN_TICK_MS / 1000;
+      if (turnTimeLeft <= 0) {
+        turnTimeLeft = 0;
+        updateTimerUI();
+        stopTurnTimer();
+        handleTimeout();
+        return;
+      }
+      const prevSec = Math.ceil((turnTimeLeft + TURN_TICK_MS/1000));
+      const curSec = Math.ceil(turnTimeLeft);
+      if (prevSec !== curSec && curSec <= 5) Sound.tick();
+      updateTimerUI();
+    }, TURN_TICK_MS);
+  }
+  function stopTurnTimer() {
+    if (turnTimer) { clearInterval(turnTimer); turnTimer = null; }
+  }
+  function updateTimerUI() {
+    const percent = Math.max(0, (turnTimeLeft / TURN_TIME) * 100);
+    timerBar.style.width = percent + '%';
+    timerText.textContent = Math.ceil(turnTimeLeft) + 'с';
+    turnTimerEl.classList.remove('warning', 'danger');
+    if (turnTimeLeft <= 5) turnTimerEl.classList.add('danger');
+    else if (turnTimeLeft <= 10) turnTimerEl.classList.add('warning');
+  }
+  function handleTimeout() {
+    if (gameOver || matchFinished) return;
+    Sound.timeout();
+    showToast(`⏱ Время вышло! Ход переходит к ${currentPlayer === 'X' ? 'O' : 'X'}`, 'error');
+    switchTurn();
+  }
+
+  // ========================================================================
+  // ХОДЫ
+  // ========================================================================
+  function switchTurn() {
+    if (gameOver || matchFinished) return;
+    currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+    statusEl.textContent = `Ход игрока: ${currentPlayer}`;
+    statusEl.style.color = 'var(--accent)';
+    updateUndoUI();
+    if (modeSelect.value === 'pve' && currentPlayer === 'O') aiTurn();
+    else startTurnTimer();
+  }
+
+  function handleClick(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (gameOver || matchFinished || aiThinking) return;
+    if (state[index] !== '') return;
+    if (modeSelect.value === 'pve' && currentPlayer !== 'X') return;
+
+    stopTurnTimer();
+    makeMove(index, currentPlayer);
+    if (!gameOver && !matchFinished) switchTurn();
+  }
+
+  function makeMove(index, player) {
+    state[index] = player;
+    moveHistory.push({ index, player });
+    const cell = cells[index];
+    cell.classList.add(player.toLowerCase());
+    cell.disabled = true;
+    const piece = document.createElement('span');
+    piece.className = 'piece';
+    piece.innerHTML = getSkinSVG(player);
+    cell.appendChild(piece);
+
+    if (player === 'X') Sound.clickX(); else Sound.clickO();
+
+    const winLine = checkWinner();
+    if (winLine) {
+      gameOver = true;
+      highlightWin(winLine);
+      score[player]++;
+      updateScoreUI();
+      handleMatchWin(player);
+      updateUndoUI();
+      stopTurnTimer();
+      return true;
+    }
+
+    if (state.every(v => v !== '')) {
+      gameOver = true;
+      score.D++;
+      updateScoreUI();
+      addHistory('D');
+      statusEl.textContent = 'Ничья! 🤝';
+      statusEl.style.color = 'var(--accent)';
+      Sound.draw();
+      // Ежедневная миссия
+      updateDailyMissionProgress('draw_round', {});
+      updateUndoUI();
+      stopTurnTimer();
+      return true;
+    }
+    return false;
+  }
+
+  function getSkinSVG(player) {
+    const id = player === 'X' ? selectedSkinX : selectedSkinO;
+    return SKINS[id]?.svg || '';
+  }
+  function checkWinner() {
+    for (const line of WIN_LINES) {
+      const f = state[line[0]];
+      if (!f) continue;
+      if (line.every(i => state[i] === f)) return line;
+    }
+    return null;
+  }
+  function highlightWin(line) {
+    line.forEach((i, k) => setTimeout(() => cells[i].classList.add('win'), k * 90));
+  }
+  function updateScoreUI() {
+    scoreXEl.textContent = score.X;
+    scoreOEl.textContent = score.O;
+    scoreDEl.textContent = score.D;
+  }
+
+  // ========================================================================
+  // СТРИКИ
+  // ========================================================================
+  function updateStrikesUI() {
+    winStrikeVal.textContent = winStrike;
+    loseStrikeVal.textContent = loseStrike;
+    winStrikeEl.classList.toggle('active', winStrike > 0);
+    loseStrikeEl.classList.toggle('active', loseStrike > 0);
+  }
+
+  function registerWin() {
+    winStrike++;
+    loseStrike = 0;
+    const bonus = Math.min(winStrike, MAX_STRIKE_BONUS);
+    const total = WIN_REWARD + bonus;
+    addCoins(total);
+    updateStrikesUI();
+    stats.wins++;
+    statusEl.textContent = `🏆 Победа! +${total}🪙` + (bonus > 0 ? ` (серия +${bonus})` : '');
+    statusEl.style.color = 'var(--good)';
+    Sound.win();
+    addHistory('X');
+    addXP(5);
+    addXP(5);
+
+    // Отслеживание
+    const data = { size: SIZE, diff: diffSelect.value, usedUndo: usedUndoInMatch };
+    trackEvent('win_round', data);
+    trackEvent('win_pve', data);
+    trackEvent('win_difficulty', data);
+    trackEvent('win_size', { size: SIZE });
+    trackEvent('winstrike', { streak: winStrike });
+    trackEvent('reach_level', { level: level });
+    trackEvent('own_skins', {});
+    trackEvent('complete_missions', {});
+
+    // Ежедневные миссии
+    updateDailyMissionProgress('win_round', data);
+    updateDailyMissionProgress('winstrike', { streak: winStrike });
+  }
+
+  function registerLoss() {
+    loseStrike++;
+    winStrike = 0;
+    updateStrikesUI();
+    statusEl.textContent = '😔 Поражение';
+    statusEl.style.color = 'var(--bad)';
+    Sound.lose();
+    addHistory('O');
+    addXP(2);
+    updateDailyMissionProgress('play_round', {});
+  }
+
+  // ========================================================================
+  // МАТЧ
+  // ========================================================================
+  function handleMatchWin(player) {
+    matchWins[player]++;
+    updateMatchUI();
+
+    if (modeSelect.value === 'pve') {
+      if (player === 'X') registerWin();
+      else registerLoss();
+    } else {
+      statusEl.textContent = player === 'X' ? '🎉 Победил X!' : '🎉 Победил O!';
+      statusEl.style.color = player === 'X' ? 'var(--x-color)' : 'var(--o-color)';
+      Sound.win();
+      addHistory(player);
+    }
+
+    if (matchWins[player] >= matchLen) {
+      matchFinished = true;
+      stats.matches++;
+
+      if (modeSelect.value === 'pve' && player === 'X') {
+        const xpGain = calculateMatchXP(matchWins.X, matchWins.O);
+        addXP(xpGain);
+        showToast(`⭐ +${xpGain} XP за победу в матче!`, 'success');
+
+        trackEvent('win_match_difficulty', {
+          diff: diffSelect.value, matchLen: matchLen, matchWon: true
+        });
+        updateDailyMissionProgress('win_match', {});
+      }
+
+      setTimeout(() => showToast(`🏆 ${player} победил в матче!`, 'success'), 600);
+      setTimeout(() => { resetMatch(); initBoard(); }, 2500);
+    } else {
+      setTimeout(() => resetBoardOnly(), 1800);
+    }
+  }
+
+  function resetBoardOnly() {
+    state = Array(SIZE * SIZE).fill('');
+    gameOver = false;
+    aiThinking = false;
+    currentPlayer = 'X';
+    moveHistory = [];
+    undosLeft = MAX_UNDO_PER_GAME;
+    usedUndoInMatch = false;
+    cells.forEach(cell => {
+      cell.classList.remove('x', 'o', 'win');
+      cell.disabled = false;
+      cell.innerHTML = '';
+    });
+    statusEl.textContent = 'Ход игрока: X';
+    statusEl.style.color = 'var(--accent)';
+    updateUndoUI();
+    startTurnTimer();
+  }
+
+  // ========================================================================
+  // ВАЛЮТА
+  // ========================================================================
+  function addCoins(amount) {
+    coins += amount;
+    updateWalletUI();
+    Sound.coin();
+    saveState();
+  }
+  function addStars(amount) {
+    stars += amount;
+    updateWalletUI();
+    saveState();
+  }
+  function updateWalletUI() {
+    coinsCountEl.textContent = coins;
+    starsCountEl.textContent = stars;
+  }
+
+  // ========================================================================
+  // ОТМЕНА
+  // ========================================================================
+  function updateUndoUI() {
+    undoBadge.textContent = undosLeft;
+    const canUndo = moveHistory.length > 0 && !gameOver && !matchFinished && undosLeft > 0 && !aiThinking;
+    undoBtn.disabled = !canUndo;
+  }
+
+  undoBtn.addEventListener('click', () => {
+    if (undoBtn.disabled) return;
+    undoText.textContent = `Потратить 1 отмену за рекламу? Осталось: ${undosLeft} из ${MAX_UNDO_PER_GAME}.`;
+    undoOverlay.classList.add('show');
+  });
+  undoCancel.addEventListener('click', () => undoOverlay.classList.remove('show'));
+  undoConfirm.addEventListener('click', () => {
+    undoOverlay.classList.remove('show');
+    startAd(() => performUndo());
+  });
+
+  function performUndo() {
+    if (moveHistory.length === 0) return;
+    stopTurnTimer();
+    const mode = modeSelect.value;
+    let toRemove = mode === 'pve' ? (moveHistory.length >= 2 ? 2 : 1) : 1;
+    for (let k = 0; k < toRemove; k++) {
+      const last = moveHistory.pop();
+      if (!last) break;
+      state[last.index] = '';
+      const cell = cells[last.index];
+      cell.classList.remove('x', 'o', 'win');
+      cell.disabled = false;
+      cell.innerHTML = '';
+    }
+    gameOver = false;
+    aiThinking = false;
+    currentPlayer = mode === 'pve' ? 'X' : (moveHistory.length % 2 === 0 ? 'X' : 'O');
+    undosLeft--;
+    usedUndoInMatch = true;
+    Sound.undo();
+    statusEl.textContent = `Ход игрока: ${currentPlayer}`;
+    updateUndoUI();
+    startTurnTimer();
+  }
+
+  // ========================================================================
+  // РЕКЛАМА
+  // ========================================================================
+  function startAd(callback) {
+    adOverlay.classList.add('show');
+    adBar.style.width = '0%';
+    adCancel.disabled = true;
+    const DURATION = 3;
+    let elapsed = 0;
+    adTimer.textContent = `Осталось: ${DURATION} сек`;
+    const timer = setInterval(() => {
+      elapsed += 0.1;
+      adBar.style.width = Math.min(100, (elapsed / DURATION) * 100) + '%';
+      adTimer.textContent = `Осталось: ${Math.max(0, Math.ceil(DURATION - elapsed))} сек`;
+      if (elapsed >= DURATION) {
+        clearInterval(timer);
+        adTimer.textContent = 'Готово! ✅';
+        adCancel.disabled = false;
+      }
+    }, 100);
+    adCancel.onclick = () => {
+      if (adCancel.disabled) return;
+      adOverlay.classList.remove('show');
+      adCancel.onclick = null;
+      if (callback) callback();
+    };
+  }
+
+  // ========================================================================
+  // ИСТОРИЯ
+  // ========================================================================
+  function addHistory(result) {
+    history.unshift({ result, size: SIZE, mode: modeSelect.value, diff: diffSelect.value, ts: Date.now() });
+    if (history.length > 20) history = history.slice(0, 20);
+    renderHistory();
+    saveState();
+  }
+
+  function renderHistory() {
+    historyListEl.innerHTML = '';
+    if (history.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = 'Пока нет партий';
+      historyListEl.appendChild(li);
+      return;
+    }
+    history.forEach(entry => {
+      const li = document.createElement('li');
+      li.className = entry.result === 'X' ? 'win-x' : entry.result === 'O' ? 'win-o' : 'draw';
+      const resText = entry.result === 'X' ? 'Победил X' : entry.result === 'O' ? 'Победил O' : 'Ничья';
+      const resClass = entry.result === 'X' ? 'win-x' : entry.result === 'O' ? 'win-o' : 'draw';
+      const modeText = entry.mode === 'pve' ? 'ИИ' : '2P';
+      const d = new Date(entry.ts);
+      const timeText = d.toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'});
+      li.innerHTML = `<span class="result ${resClass}">${resText}</span><span class="meta">${entry.size}×${entry.size} · ${modeText} · ${timeText}</span>`;
+      historyListEl.appendChild(li);
+    });
+  }
+  clearHistoryBtn.addEventListener('click', () => { history = []; renderHistory(); saveState(); });
+
+  // ========================================================================
+  // ИИ — 7 УРОВНЕЙ
+  // ========================================================================
+  function aiTurn() {
+    if (gameOver || matchFinished || currentPlayer !== 'O') return;
+    aiThinking = true;
+    updateUndoUI();
+    stopTurnTimer();
+
+    const diff = diffSelect.value;
+    const delays = { d1:250, d2:300, d3:400, d4:450, d5:500, d6:600, d7:700 };
+    const delay = delays[diff] || 400;
+
+    setTimeout(() => {
+      if (gameOver || matchFinished || currentPlayer !== 'O') { aiThinking = false; return; }
+      let move = null;
+      try { move = pickAIMove(diff); } catch { move = null; }
+      if (move == null) {
+        const empty = emptyIndices();
+        move = empty.length > 0 ? empty[0] : null;
+      }
+      if (move != null) {
+        Sound.ai();
+        const finished = makeMove(move, 'O');
+        if (!finished && !gameOver && !matchFinished) {
+          currentPlayer = 'X';
+          statusEl.textContent = 'Ход игрока: X';
+          statusEl.style.color = 'var(--accent)';
+          startTurnTimer();
+        }
+      }
+      aiThinking = false;
+      updateUndoUI();
+    }, delay);
+  }
+
+  function pickAIMove(diff) {
+    switch (diff) {
+      case 'd1': return aiD1_Newbie();
+      case 'd2': return aiD2_Easy();
+      case 'd3': return aiD3_Medium();
+      case 'd4': return aiD4_Hard();
+      case 'd5': return aiD5_Experienced();
+      case 'd6': return aiD6_Master();
+      case 'd7': return aiD7_Unbeatable();
+      default:   return randomMove();
+    }
+  }
+
+  function aiD1_Newbie() { return randomMove(); }
+
+  function aiD2_Easy() {
+    if (Math.random() < 0.30) {
+      const b = winningMove('X');
+      if (b != null) return b;
+    }
+    return randomMove();
+  }
+
+  function aiD3_Medium() {
+    const w = winningMove('O'); if (w != null) return w;
+    if (Math.random() < 0.60) {
+      const b = winningMove('X');
+      if (b != null) return b;
+    }
+    return smartRandomMove();
+  }
+
+  function aiD4_Hard() {
+    const w = winningMove('O'); if (w != null) return w;
+    const b = winningMove('X'); if (b != null) return b;
+    const center = getCenterIndex();
+    if (center != null && state[center] === '') return center;
+    const corners = getCornerIndices().filter(i => state[i] === '');
+    if (corners.length) return corners[Math.floor(Math.random() * corners.length)];
+    return randomMove();
+  }
+
+  function aiD5_Experienced() {
+    const w = winningMove('O'); if (w != null) return w;
+    const b = winningMove('X'); if (b != null) return b;
+    if (SIZE === 3) {
+      const r = minimaxLimited(state.slice(), 0, true, 4, -Infinity, Infinity);
+      return r.index ?? smartRandomMove();
+    }
+    const r = minimaxLimited(state.slice(), 0, true, 2, -Infinity, Infinity);
+    return r.index ?? smartRandomMove();
+  }
+
+  function aiD6_Master() {
+    const w = winningMove('O'); if (w != null) return w;
+    const b = winningMove('X'); if (b != null) return b;
+    if (SIZE === 3) {
+      const r = minimax(state.slice(), 0, true, -Infinity, Infinity);
+      return r.index ?? randomMove();
+    }
+    const r = minimaxLimited(state.slice(), 0, true, 4, -Infinity, Infinity);
+    return r.index ?? smartRandomMove();
+  }
+
+  function aiD7_Unbeatable() {
+    const w = winningMove('O'); if (w != null) return w;
+    const b = winningMove('X'); if (b != null) return b;
+    if (SIZE === 3) {
+      const r = minimax(state.slice(), 0, true, -Infinity, Infinity);
+      return r.index ?? randomMove();
+    }
+    const depth = SIZE === 4 ? 5 : 4;
+    const r = minimaxLimited(state.slice(), 0, true, depth, -Infinity, Infinity);
+    return r.index ?? randomMove();
+  }
+
+  function randomMove() {
+    const e = emptyIndices();
+    return e.length ? e[Math.floor(Math.random() * e.length)] : null;
+  }
+
+  function smartRandomMove() {
+    const center = getCenterIndex();
+    if (center != null && state[center] === '' && Math.random() < 0.6) return center;
+    const corners = getCornerIndices().filter(i => state[i] === '');
+    if (corners.length && Math.random() < 0.6) return corners[Math.floor(Math.random() * corners.length)];
+    return randomMove();
+  }
+
+  function getCenterIndex() {
+    if (SIZE % 2 === 0) return null;
+    const mid = Math.floor(SIZE / 2);
+    return mid * SIZE + mid;
+  }
+
+  function getCornerIndices() {
+    return [0, SIZE - 1, (SIZE - 1) * SIZE, SIZE * SIZE - 1];
+  }
+
+  function winningMove(p) {
+    for (const idx of emptyIndices()) {
+      state[idx] = p;
+      const win = checkWinner();
+      state[idx] = '';
+      if (win) return idx;
+    }
+    return null;
+  }
+
+  function emptyIndices() {
+    return state.map((v, i) => v === '' ? i : -1).filter(i => i >= 0);
+  }
+
+  function minimax(board, depth, isMax, alpha, beta) {
+    const w = winnerOf(board);
+    if (w === 'O') return { score: 10 - depth };
+    if (w === 'X') return { score: depth - 10 };
+    if (board.every(v => v !== '')) return { score: 0 };
+    if (isMax) {
+      let best = { score: -Infinity, index: null };
+      for (let i = 0; i < board.length; i++) {
+        if (board[i] !== '') continue;
+        board[i] = 'O';
+        const r = minimax(board, depth + 1, false, alpha, beta);
+        board[i] = '';
+        if (r.score > best.score) best = { score: r.score, index: i };
+        alpha = Math.max(alpha, best.score);
+        if (beta <= alpha) break;
+      }
+      return best;
+    } else {
+      let best = { score: Infinity, index: null };
+      for (let i = 0; i < board.length; i++) {
+        if (board[i] !== '') continue;
+        board[i] = 'X';
+        const r = minimax(board, depth + 1, true, alpha, beta);
+        board[i] = '';
+        if (r.score < best.score) best = { score: r.score, index: i };
+        beta = Math.min(beta, best.score);
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+  }
+
+  function minimaxLimited(board, depth, isMax, maxDepth, alpha, beta) {
+    const w = winnerOf(board);
+    if (w === 'O') return { score: 1000 - depth * 10 };
+    if (w === 'X') return { score: -1000 + depth * 10 };
+    if (board.every(v => v !== '')) return { score: 0 };
+    if (depth >= maxDepth) return { score: evaluateBoard(board) };
+    if (isMax) {
+      let best = { score: -Infinity, index: null };
+      for (let i = 0; i < board.length; i++) {
+        if (board[i] !== '') continue;
+        board[i] = 'O';
+        const r = minimaxLimited(board, depth + 1, false, maxDepth, alpha, beta);
+        board[i] = '';
+        if (r.score > best.score) best = { score: r.score, index: i };
+        alpha = Math.max(alpha, best.score);
+        if (beta <= alpha) break;
+      }
+      return best;
+    } else {
+      let best = { score: Infinity, index: null };
+      for (let i = 0; i < board.length; i++) {
+        if (board[i] !== '') continue;
+        board[i] = 'X';
+        const r = minimaxLimited(board, depth + 1, true, maxDepth, alpha, beta);
+        board[i] = '';
+        if (r.score < best.score) best = { score: r.score, index: i };
+        beta = Math.min(beta, best.score);
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+  }
+
+  function evaluateBoard(board) {
+    let score = 0;
+    for (const line of WIN_LINES) {
+      let o = 0, x = 0;
+      for (const i of line) {
+        if (board[i] === 'O') o++;
+        else if (board[i] === 'X') x++;
+      }
+      if (o && x) continue;
+      if (o) score += Math.pow(10, o);
+      if (x) score -= Math.pow(10, x);
+    }
+    return score;
+  }
+
+  function winnerOf(board) {
+    for (const line of WIN_LINES) {
+      const f = board[line[0]];
+      if (!f) continue;
+      if (line.every(i => board[i] === f)) return f;
+    }
+    return null;
+  }
+
+  // ========================================================================
+  // МАГАЗИН СКИНОВ
+  // ========================================================================
+  function renderSkins() {
+    skinsXEl.innerHTML = ''; skinsOEl.innerHTML = '';
+    Object.entries(SKINS).forEach(([id, skin]) => {
+      const container = skin.type === 'x' ? skinsXEl : skinsOEl;
+      const isOwned = ownedSkins.has(id);
+      const isSelected = (skin.type === 'x' && selectedSkinX === id) || (skin.type === 'o' && selectedSkinO === id);
+      const card = document.createElement('div');
+      card.className = 'skin-card';
+      card.dataset.type = skin.type;
+      if (isSelected) card.classList.add('selected');
+      if (isOwned) card.classList.add('owned');
+      if (!isOwned) card.classList.add('locked');
+
+      let priceLine;
+      if (isSelected) priceLine = `<div class="skin-price">✓ Выбран</div>`;
+      else if (isOwned) priceLine = `<div class="skin-price">Надеть</div>`;
+      else if (skin.story) priceLine = `<div class="skin-price">📖 Сюжет</div>`;
+      else priceLine = `<div class="skin-price">🪙 ${skin.price}</div>`;
+
+      card.innerHTML = `
+        <div class="skin-preview">${skin.svg}</div>
+        <div class="skin-name">${skin.name}</div>
+        ${priceLine}
+        ${isSelected ? '<div class="skin-badge">✓</div>' : ''}
+        ${skin.story && isOwned ? '<div class="skin-badge story">📖</div>' : ''}
+      `;
+      card.addEventListener('click', () => handleSkinClick(id));
+      container.appendChild(card);
+    });
+  }
+
+  function handleSkinClick(id) {
+    const skin = SKINS[id];
+    if (!skin) return;
+    const isOwned = ownedSkins.has(id);
+    const isSelected = (skin.type === 'x' && selectedSkinX === id) || (skin.type === 'o' && selectedSkinO === id);
+    if (isSelected) return;
+
+    if (isOwned) {
+      if (skin.type === 'x') selectedSkinX = id; else selectedSkinO = id;
+      Sound.buy();
+      renderSkins();
+      saveState();
+      return;
+    }
+
+    if (skin.story) {
+      showToast('📖 Открывается за сюжет. Пройди главу!', 'error');
+      return;
+    }
+
+    skinBuyTitle.textContent = `🎨 Купить «${skin.name}»?`;
+    skinBuyText.innerHTML = `Скин для ${skin.type === 'x' ? 'X' : 'O'}<br>Стоимость: <b style="color:var(--accent)">🪙 ${skin.price}</b><br>У вас: 🪙 ${coins}`;
+    skinBuyConfirm.onclick = () => {
+      if (coins < skin.price) {
+        skinBuyText.innerHTML = `Недостаточно монет!<br>Нужно: 🪙 ${skin.price}<br>У вас: 🪙 ${coins}`;
+        return;
+      }
+      coins -= skin.price;
+      ownedSkins.add(id);
+      if (skin.type === 'x') selectedSkinX = id; else selectedSkinO = id;
+      updateWalletUI();
+      Sound.buy();
+      skinBuyOverlay.classList.remove('show');
+      renderSkins();
+      saveState();
+      showToast('Скин куплен и надет!', 'success');
+      trackEvent('own_skins', {});
+    };
+    skinBuyOverlay.classList.add('show');
+  }
+
+  // ========================================================================
+  // МАГАЗИН ЗВЁЗД
+  // ========================================================================
+  function renderStarPacks() {
+    starsGridEl.innerHTML = '';
+    STAR_PACKS.forEach(pack => {
+      const priceTON = TON_PRICES[pack.id];
+      const total = pack.stars + pack.bonus;
+      const el = document.createElement('div');
+      el.className = 'star-pack';
+      el.innerHTML = `
+        <div class="star-icon">⭐</div>
+        <div class="star-amount">${total} ${total === 1 ? 'звезда' : total < 5 ? 'звезды' : 'звёзд'}</div>
+        ${pack.bonus > 0 ? `<div class="star-bonus">+${pack.bonus} бонус</div>` : ''}
+        <div class="ton-price">${priceTON} TON</div>
+        <button class="ton-buy-btn">💎 Купить</button>
+      `;
+      el.querySelector('.ton-buy-btn').addEventListener('click', () => openTonPay(pack));
+      starsGridEl.appendChild(el);
+    });
+  }
+
+  // ========================================================================
+  // TON ОПЛАТА
+  // ========================================================================
+  function openTonPay(pack) {
+    pendingTONPack = pack;
+    const priceTON = TON_PRICES[pack.id];
+    const total = pack.stars + pack.bonus;
+    tonPayAmount.textContent = priceTON + ' TON';
+    tonPayStars.textContent = '+' + total + ' ⭐';
+    tonPayWallet.textContent = TON_WALLET.slice(0, 8) + '...' + TON_WALLET.slice(-6);
+    tonPayStatus.style.display = 'none';
+    tonPayStatus.className = 'ton-status';
+    tonPayStatus.textContent = '';
+
+    if (!tonConnectUI) {
+      tonPayStatus.style.display = 'block';
+      tonPayStatus.className = 'ton-status error';
+      tonPayStatus.textContent = 'TON Connect не загружен';
+      tonPayConfirm.disabled = true;
+    } else if (tonConnectUI.connected) {
+      tonPayConfirm.textContent = `Оплатить ${priceTON} TON`;
+      tonPayConfirm.disabled = false;
+    } else {
+      tonPayConfirm.textContent = 'Подключить кошелёк';
+      tonPayConfirm.disabled = false;
+    }
+    tonPayOverlay.classList.add('show');
+  }
+
+  tonPayCancel.addEventListener('click', () => {
+    tonPayOverlay.classList.remove('show');
+    pendingTONPack = null;
+  });
+
+  tonPayConfirm.addEventListener('click', async () => {
+    if (!pendingTONPack || !tonConnectUI) return;
+    const pack = pendingTONPack;
+    const priceTON = TON_PRICES[pack.id];
+    const total = pack.stars + pack.bonus;
+
+    if (!tonConnectUI.connected) {
+      try {
+        tonPayStatus.style.display = 'block';
+        tonPayStatus.className = 'ton-status';
+        tonPayStatus.innerHTML = '<span class="ton-spinner"></span>Подключение...';
+        tonPayConfirm.disabled = true;
+        await tonConnectUI.openModal();
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Timeout')), 120000);
+          const unsub = tonConnectUI.onStatusChange(w => {
+            if (w) { clearTimeout(timeout); unsub(); resolve(); }
+          });
+        });
+        tonPayConfirm.disabled = false;
+        tonPayConfirm.textContent = `Оплатить ${priceTON} TON`;
+        tonPayStatus.style.display = 'none';
+      } catch (e) {
+        tonPayStatus.className = 'ton-status error';
+        tonPayStatus.textContent = 'Не удалось подключить';
+        tonPayConfirm.disabled = false;
+        return;
+      }
+    }
+
+    try {
+      tonPayConfirm.disabled = true;
+      tonPayStatus.style.display = 'block';
+      tonPayStatus.className = 'ton-status';
+      tonPayStatus.innerHTML = '<span class="ton-spinner"></span>Отправка...';
+
+      const tx = {
+        validUntil: Math.floor(Date.now() / 1000) + 300,
+        messages: [{
+          address: TON_WALLET,
+          amount: (priceTON * 1e9).toString(),
+          payload: btoa(JSON.stringify({
+            packId: pack.id, userId: tgUser?.id || 0, stars: total, ts: Date.now()
+          }))
+        }]
+      };
+
+      const result = await tonConnectUI.sendTransaction(tx);
+      if (!result.boc) throw new Error('Не отправлено');
+
+      tonPayStatus.className = 'ton-status success';
+      tonPayStatus.innerHTML = '✅ Транзакция отправлена!';
+
+      setTimeout(() => {
+        addStars(total);
+        Sound.buy();
+        showToast(`⭐ Зачислено ${total} звёзд!`, 'success');
+        tonPayOverlay.classList.remove('show');
+        pendingTONPack = null;
+      }, 8000);
+    } catch (err) {
+      tonPayConfirm.disabled = false;
+      tonPayStatus.className = 'ton-status error';
+      const msg = (err.message || '').toLowerCase();
+      tonPayStatus.textContent = (msg.includes('cancel') || msg.includes('reject'))
+        ? '❌ Отменено' : '❌ Ошибка: ' + (err.message || '');
+    }
+  });
+
+  // ========================================================================
+  // ЕЖЕДНЕВНАЯ НАГРАДА
+  // ========================================================================
+  function canClaimDaily() {
+    if (!dailyLastClaim) return true;
+    return Date.now() - dailyLastClaim >= 20 * 60 * 60 * 1000;
+  }
+  function renderDaily() {
+    dailyRewardsEl.innerHTML = '';
+    const canClaim = canClaimDaily();
+    let idx = canClaim ? (dailyStreak >= 7 ? 0 : dailyStreak) : -1;
+    DAILY_REWARDS.forEach((r, i) => {
+      const day = document.createElement('div');
+      day.className = 'daily-day';
+      if (i < idx) day.classList.add('claimed');
+      if (i === idx && canClaim) day.classList.add('today');
+      day.innerHTML = `
+        <div class="day-label">День ${i+1}</div>
+        <div class="day-icon">${r.icon}</div>
+        <div class="day-reward">+${r.coins}🪙</div>
+      `;
+      dailyRewardsEl.appendChild(day);
+    });
+    dailyClaim.disabled = !canClaim;
+    dailyClaim.textContent = canClaim ? 'Забрать' : 'Уже получено';
+  }
+  function updateDailyButton() {
+    if (canClaimDaily()) {
+      dailyBtn.classList.add('pulse');
+      if (!dailyBtn.querySelector('.dot')) {
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        dailyBtn.appendChild(dot);
+      }
+    } else {
+      dailyBtn.classList.remove('pulse');
+      dailyBtn.querySelector('.dot')?.remove();
+    }
+  }
+  dailyBtn.addEventListener('click', () => { renderDaily(); dailyOverlay.classList.add('show'); });
+  dailyClose.addEventListener('click', () => dailyOverlay.classList.remove('show'));
+  dailyClaim.addEventListener('click', () => {
+    if (!canClaimDaily()) return;
+    const i = dailyStreak >= 7 ? 0 : dailyStreak;
+    addCoins(DAILY_REWARDS[i].coins);
+    addXP(10);
+    dailyLastClaim = Date.now();
+    dailyStreak = (dailyStreak >= 7 ? 1 : dailyStreak + 1);
+    if (dailyStreak > 7) dailyStreak = 7;
+    saveState();
+    updateDailyButton();
+    renderDaily();
+    showToast(`🎁 +${DAILY_REWARDS[i].coins}🪙 +10 XP`, 'success');
+  });
+
+  // ========================================================================
+  // МАГАЗИН — ВКЛАДКИ
+  // ========================================================================
+  function openShop() {
+    shopOverlay.classList.add('show');
+    renderSkins();
+    renderStarPacks();
+  }
+  shopBtn.addEventListener('click', openShop);
+  buyStarsBtn.addEventListener('click', () => { openShop(); switchShopTab('stars'); });
+  closeShopBtn.addEventListener('click', () => shopOverlay.classList.remove('show'));
+  shopOverlay.addEventListener('click', e => { if (e.target === shopOverlay) shopOverlay.classList.remove('show'); });
+
+  document.querySelectorAll('.shop-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchShopTab(tab.dataset.tab));
+  });
+  function switchShopTab(name) {
+    document.querySelectorAll('.shop-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.shop-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+    if (name === 'skins') renderSkins();
+    if (name === 'stars') renderStarPacks();
+  }
+
+  // ========================================================================
+  // КНОПКИ
+  // ========================================================================
+  restartBtn.addEventListener('click', () => { stopTurnTimer(); resetBoardOnly(); });
+  resetAllBtn.addEventListener('click', () => {
+    score = { X: 0, O: 0, D: 0 };
+    winStrike = 0; loseStrike = 0;
+    updateScoreUI(); updateStrikesUI();
+    resetMatch();
+    saveState();
+    initBoard();
+  });
+  sizeSelect.addEventListener('change', () => { stopTurnTimer(); saveState(); resetMatch(); initBoard(); });
+  modeSelect.addEventListener('change', () => { stopTurnTimer(); saveState(); resetMatch(); initBoard(); });
+  diffSelect.addEventListener('change', () => saveState());
+  matchSelect.addEventListener('change', () => { stopTurnTimer(); saveState(); resetMatch(); initBoard(); });
+
+  // Обновление таймера ежедневных миссий каждую минуту
+  setInterval(() => {
+    if (dailyMissionsOverlay.classList.contains('show')) {
+      renderDailyMissions();
+    }
+  }, 60000);
+
+  // ========================================================================
+  // СТАРТ
+  // ========================================================================
+  (function boot() {
+    initTonConnect();
+
+    const saved = loadState();
+    if (saved) {
+      if (saved.size) sizeSelect.value = saved.size;
+      if (saved.mode) modeSelect.value = saved.mode;
+      if (saved.diff) diffSelect.value = saved.diff;
+      if (saved.matchLen) matchSelect.value = saved.matchLen;
+      if (saved.score) score = { ...score, ...saved.score };
+      if (Array.isArray(saved.history)) history = saved.history;
+      if (typeof saved.coins === 'number') coins = saved.coins;
+      if (typeof saved.stars === 'number') stars = saved.stars;
+      if (Array.isArray(saved.ownedSkins)) ownedSkins = new Set(saved.ownedSkins);
+      if (saved.selectedSkinX && SKINS[saved.selectedSkinX]) selectedSkinX = saved.selectedSkinX;
+      if (saved.selectedSkinO && SKINS[saved.selectedSkinO]) selectedSkinO = saved.selectedSkinO;
+      if (typeof saved.winStrike === 'number') winStrike = saved.winStrike;
+      if (typeof saved.loseStrike === 'number') loseStrike = saved.loseStrike;
+      if (typeof saved.dailyLastClaim === 'number') dailyLastClaim = saved.dailyLastClaim;
+      if (typeof saved.dailyStreak === 'number') dailyStreak = saved.dailyStreak;
+      if (typeof saved.xp === 'number') xp = saved.xp;
+      if (typeof saved.level === 'number') level = saved.level;
+      if (saved.selectedFrame) selectedFrame = saved.selectedFrame;
+      if (saved.stats) stats = { ...stats, ...saved.stats };
+      if (saved.chapters) chapters = { ...chapters, ...saved.chapters };
+      if (saved.missionsState) missionsState = { ...missionsState, ...saved.missionsState };
+      if (saved.dailyMissions) dailyMissions = saved.dailyMissions;
+      if (saved.dailyMissionProgress) dailyMissionProgress = saved.dailyMissionProgress;
+      ownedSkins.add('x_classic'); ownedSkins.add('o_classic');
+    }
+
+    // Ежедневные миссии — проверка/генерация
+    checkDailyReset();
+
+    updateScoreUI();
+    updateWalletUI();
+    updateStrikesUI();
+    renderHistory();
+    updateProfileUI();
+    initBoard();
+    updateDailyButton();
+    setInterval(updateDailyButton, 60 * 1000);
+
+    trackEvent('reach_level', { level: level });
+    trackEvent('own_skins', {});
+    trackEvent('complete_missions', {});
+
+    if (canClaimDaily()) setTimeout(() => showToast('🎁 Доступна ежедневная награда!', 'success'), 1200);
+
+    // Уведомление о ежедневных миссиях
+    setTimeout(() => {
+      const unclaimed = dailyMissions.list?.filter(m => (dailyMissionProgress[m.id] || 0) >= m.count && !m.claimed).length || 0;
+      if (unclaimed > 0) showToast(`🎯 ${unclaimed} ежедневных миссий готовы к награде!`, 'success');
+    }, 2500);
+  })();
+</script>
+
+</body>
+</html>
